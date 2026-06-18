@@ -460,6 +460,13 @@ const BUILTIN_PRESETS = {
 };
 
 
+const SHADOW_DEFS = {
+  soft:     { color:'rgba(0,0,0,0.15)', ox:0, oy:2,  blur:6  },
+  medium:   { color:'rgba(0,0,0,0.25)', ox:0, oy:4,  blur:10 },
+  strong:   { color:'rgba(0,0,0,0.40)', ox:0, oy:6,  blur:16 },
+  floating: { color:'rgba(0,0,0,0.30)', ox:0, oy:8,  blur:20 },
+};
+
 // ─── State ────────────────────────────────────────────────────────
 const st = {
   mode:'swatch', inputMode:'files',
@@ -834,33 +841,6 @@ async function _itLI(url){
   return new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=url;});
 }
 function _u2f(url,idx){try{const u=new URL(url);const p=u.pathname.split('/').filter(Boolean);const l=p[p.length-1]||('image-'+(idx+1));return decodeURIComponent(l).replace(/[?#].*$/,'')||('image-'+(idx+1));}catch{return 'image-'+(idx+1);}}
-function buildExcelReportBuffer() {
-  const sizes=parseSizes();
-  const opts=getSettings();
-  const extras=['status','error','shape','crop_engine','source_width','source_height',...sizes.map(s=>'swatch_'+s)];
-  const itemsByRow=new Map(state.items.map(it=>[it.rowIndex,it]));
-  const outRows=state.excelRows.map((row,idx)=>{
-    const it=itemsByRow.get(idx);
-    const copy={...row};
-    if(it){
-      copy.status=it.status; copy.error=it.errorMsg||'';
-      copy.shape=opts.shape; copy.crop_engine=opts.cropEngine;
-      copy.source_width=it.srcW||''; copy.source_height=it.srcH||'';
-      for(const s of sizes){
-        const o=(it.outputs||[]).find(x=>x.size===s);
-        copy['swatch_'+s]=o?pathFor(opts.zipLayout,it.name.replace(/\.[^.]+$/,''),o):'';
-      }
-    } else {
-      extras.forEach(c=>copy[c]='');
-    }
-    return copy;
-  });
-  const headers=[...state.excelHeaders.filter(h=>!extras.includes(h)),...extras];
-  const ws=XLSX.utils.json_to_sheet(outRows,{header:headers});
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,'Swatches');
-  return XLSX.write(wb,{type:'array',bookType:'xlsx'});
-}
 function triggerDownload(blob,name) {
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
@@ -1172,13 +1152,28 @@ async function runSwatches(queue){
 }
 function collectSwatchOpts(){
   const sizes=D.sizesInput.value.split(',').map(s=>parseInt(s.trim())).filter(n=>n>0&&n<=4000);
-  return{sizes:sizes.length?sizes:[300],shape:st.shape,ratioW:parseFloat(D.ratioW.value)||1,ratioH:parseFloat(D.ratioH.value)||1,
-    cropEngine:D.cropEngine.value,bgThresh:parseInt(D.bgThresh.value),cropPad:parseInt(D.cropPad.value),
-    bgMode:D.bgMode.value,bgColor:D.bgColor.value,shadowMode:D.shadowMode.value,
-    borderMode:D.borderMode.value,borderColor:D.borderColor.value,borderWidth:parseInt(D.borderWidth.value)||0,
-    outputFormat:D.outputFormat.value,outputQuality:parseInt(D.outputQuality.value),
-    nameTemplate:D.nameTemplate.value||'{basename}_{size}',zipLayout:st.zipLayout,
-    useCorsProxy:D.useCorsProxy.checked,corsProxyUrl:D.corsProxyUrl.value||'https://corsproxy.io/?url='};
+  // FIX #4: normalize 'white'/'black' → 'solid' with the correct bgColor
+  const rawBgMode=D.bgMode.value;
+  const normBgMode=rawBgMode==='white'||rawBgMode==='black'?'solid':rawBgMode;
+  const normBgColor=rawBgMode==='white'?'#ffffff':rawBgMode==='black'?'#000000':D.bgColor.value;
+  // FIX #6: build MIME format string and 0-1 quality for canvas.toBlob
+  const rawFmt=D.outputFormat.value;
+  const mimeFormat=rawFmt==='jpeg'?'image/jpeg':rawFmt==='webp'?'image/webp':'image/png';
+  return{sizes:sizes.length?sizes:[300],shape:st.shape,
+    ratioW:parseFloat(D.ratioW.value)||1,ratioH:parseFloat(D.ratioH.value)||1,
+    cropEngine:D.cropEngine.value,bgThresh:parseInt(D.bgThresh.value),
+    cropPad:parseInt(D.cropPad.value)/100,
+    bgMode:normBgMode,bgColor:normBgColor,bgColor2:D.bgColor.value,
+    shadow:D.shadowMode.value,// FIX #5: renamed from shadowMode → shadow to match renderSwatch
+    borderMode:D.borderMode.value,borderColor:D.borderColor.value,
+    borderWidth:parseInt(D.borderWidth.value)||0,
+    format:mimeFormat,// FIX #6: MIME string expected by renderSwatch
+    quality:parseInt(D.outputQuality.value)/100,// FIX #6: 0-1 range for canvas.toBlob
+    outputFormat:rawFmt,outputQuality:parseInt(D.outputQuality.value),
+    nameTemplate:D.nameTemplate.value||'{basename}_{size}',
+    zipLayout:st.zipLayout,
+    useCorsProxy:D.useCorsProxy.checked,
+    corsProxyUrl:D.corsProxyUrl.value||'https://corsproxy.io/?url='};
 }
 async function processSwatchItem(item,opts){
   if(item.sourceUrl&&!item.srcUrl){
@@ -1187,13 +1182,17 @@ async function processSwatchItem(item,opts){
     const dims=await getImageDims(item.srcUrl);item.srcW=dims.w;item.srcH=dims.h;
   }
   const img=await loadImg(item.srcUrl);
+  // FIX #1: compute box and solidColor before calling renderSwatch
+  const box=computeCropBox(img,opts);
+  const solidColor=opts.shape==='color'?extractDominantColor(img,box,opts.bgThresh):{r:200,g:200,b:200};
   const iIdx=st.items.indexOf(item);
   const base=smartName(item,iIdx>=0?iIdx:0,'');
   const ext=opts.outputFormat==='jpeg'?'jpeg':(opts.outputFormat==='webp'?'webp':'png');
   item.outputs=[];
   for(const size of opts.sizes){
     const fname=renderTemplate(opts.nameTemplate,{basename:base,shape:opts.shape,size:String(size),index:String(iIdx+1)})+'.'+ext;
-    const blob=await renderSwatch(img,size,opts);
+    // FIX #1: was renderSwatch(img,size,opts) — now passes box and solidColor correctly
+    const blob=await renderSwatch(img,box,size,opts,solidColor);
     const url=URL.createObjectURL(blob);
     item.outputs.push({size,blob,url,filename:fname,ext});
   }
@@ -1225,15 +1224,17 @@ async function processTransformItem(item,opts){
   if(item.outputUrl)try{URL.revokeObjectURL(item.outputUrl);}catch(e){}
   const img=await _itLI(item.srcUrl);
   const sW=img.naturalWidth||img.width,sH=img.naturalHeight||img.height;
-  const tW=opts.upscale?opts.tW:Math.min(opts.tW,sW),tH=opts.upscale?opts.tH:Math.min(opts.tH,sH);
-  const canvas=document.createElement('canvas');canvas.width=opts.tW;canvas.height=opts.tH;
+  // FIX #8: compute capped dimensions first; use them for canvas AND drawing math
+  const cW=opts.upscale?opts.tW:Math.min(opts.tW,sW);
+  const cH=opts.upscale?opts.tH:Math.min(opts.tH,sH);
+  const canvas=document.createElement('canvas');canvas.width=cW;canvas.height=cH;
   const ctx=canvas.getContext('2d');
   if(opts.fit==='pad'){
-    ctx.fillStyle=opts.padColor;ctx.fillRect(0,0,opts.tW,opts.tH);
-    const r=Math.min(opts.tW/sW,opts.tH/sH),nW=Math.round(sW*r),nH=Math.round(sH*r);
-    ctx.drawImage(img,(opts.tW-nW)/2,(opts.tH-nH)/2,nW,nH);
-  } else if(opts.fit==='stretch'){ctx.drawImage(img,0,0,opts.tW,opts.tH);}
-  else{const r=Math.max(opts.tW/sW,opts.tH/sH),nW=Math.round(sW*r),nH=Math.round(sH*r);ctx.drawImage(img,(opts.tW-nW)/2,(opts.tH-nH)/2,nW,nH);}
+    ctx.fillStyle=opts.padColor;ctx.fillRect(0,0,cW,cH);
+    const r=Math.min(cW/sW,cH/sH),nW=Math.round(sW*r),nH=Math.round(sH*r);
+    ctx.drawImage(img,(cW-nW)/2,(cH-nH)/2,nW,nH);
+  } else if(opts.fit==='stretch'){ctx.drawImage(img,0,0,cW,cH);}
+  else{const r=Math.max(cW/sW,cH/sH),nW=Math.round(sW*r),nH=Math.round(sH*r);ctx.drawImage(img,(cW-nW)/2,(cH-nH)/2,nW,nH);}
   const mimes={jpeg:'image/jpeg',png:'image/png',webp:'image/webp',original:'image/jpeg'};
   let mime=mimes[opts.fmt]||'image/jpeg';
   if(opts.fmt==='original'){const x=(item.name||'').split('.').pop().toLowerCase();if(x==='png')mime='image/png';else if(x==='webp')mime='image/webp';}
@@ -1244,9 +1245,12 @@ async function processTransformItem(item,opts){
   const iIdx=st.items.indexOf(item);
   const base=smartName(item,iIdx>=0?iIdx:0,'');
   item.outputBlob=blob;item.outputUrl=URL.createObjectURL(blob);item.outputName=base+'.'+ext;
-  item.outputSize=blob.size;item.outW=opts.tW;item.outH=opts.tH;
+  item.outputSize=blob.size;item.outW=cW;item.outH=cH;
 }
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+function getImageDims(url){
+  return new Promise((res,rej)=>{const i=new Image();i.onload=()=>res({w:i.naturalWidth,h:i.naturalHeight});i.onerror=rej;i.src=url;});
+}
 async function downloadAll(){
   const done=st.items.filter(i=>i.status==='done');if(!done.length)return;
   const zip=new JSZip();const used=new Set();
@@ -1274,9 +1278,9 @@ async function downloadAll(){
 function openPresetsModal(){D.presetsModal.classList.add('open');renderPresets();}
 function closePresetsModal(){D.presetsModal.classList.remove('open');}
 function renderPresets(){
-  D.builtinPresets.innerHTML=BUILTIN_PRESETS.map(p=>
-    '<div class="preset-card"><div class="pc-name">'+p.name+'</div><div class="pc-desc">'+(p.description||'')+'</div>'+
-    '<div class="pc-actions"><button class="pc-apply" onclick="applyPreset(BUILTIN_PRESETS.find(x=>x.name===\''+p.name+'\'))">Apply</button></div></div>'
+  D.builtinPresets.innerHTML=Object.entries(BUILTIN_PRESETS).map(([name,cfg])=>
+    '<div class="preset-card"><div class="pc-name">'+name+'</div>'+
+    '<div class="pc-actions"><button class="pc-apply" onclick="applyBuiltinPreset(this.dataset.n)" data-n="'+name.replace(/"/g,'&quot;')+'">Apply</button></div></div>'
   ).join('');
   D.userPresets.innerHTML=st.userPresets.length?st.userPresets.map((p,i)=>
     '<div class="preset-card"><div class="pc-name">'+p.name+'</div>'+
@@ -1284,6 +1288,7 @@ function renderPresets(){
     '<button class="pc-del" onclick="deletePreset('+i+')">Delete</button></div></div>'
   ).join(''):'<div style="font-size:10px;color:var(--fg2)">No saved presets yet.</div>';
 }
+function applyBuiltinPreset(name){ applyPreset(BUILTIN_PRESETS[name]); closePresetsModal(); }
 function applyPreset(p){
   if(!p)return;
   if(p.shape){D.shapeGrid.querySelectorAll('.shape-btn').forEach(b=>b.classList.toggle('active',b.dataset.shape===p.shape));st.shape=p.shape;updateShapeHint();}
