@@ -214,6 +214,30 @@ button.success{background:var(--good);color:#fff;border-color:var(--good)}
 .it-btn.success{background:var(--good);color:#fff;border-color:var(--good)}
 .it-btn:disabled{opacity:.4;cursor:default}
 
+
+/* URL INPUT MODE (Swatch Generator) */
+.url-input-area{display:none;flex-direction:column;gap:8px;margin-top:8px}
+.url-input-area.active{display:flex}
+.url-single-row{display:flex;gap:6px;align-items:center}
+.url-single-row input[type=text]{flex:1;padding:6px 9px;background:var(--bg2);border:1px solid var(--bdr);border-radius:6px;color:var(--fg);font-size:13px}
+.url-add-btn{padding:6px 12px;background:var(--acc);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap;font-weight:600}
+.url-add-btn:hover{background:var(--acc2)}
+.url-bulk-label{font-size:11px;color:var(--fg2);margin-top:4px}
+.url-bulk-ta{width:100%;min-height:90px;max-height:160px;resize:vertical;background:var(--bg2);border:1px solid var(--bdr);border-radius:6px;padding:7px;color:var(--fg);font-size:12px;font-family:monospace;box-sizing:border-box}
+.url-bulk-ta::placeholder{color:var(--fg2)}
+.url-load-btn{align-self:flex-start;padding:7px 16px;background:var(--acc);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;margin-top:4px}
+.url-load-btn:hover{background:var(--acc2)}
+.url-count-badge{font-size:11px;color:var(--acc);font-weight:600;margin-top:3px}
+/* IT URL INPUT MODE */
+.it-url-area{display:none;flex-direction:column;gap:8px;margin-top:8px}
+.it-url-area.active{display:flex}
+.it-url-single{display:flex;gap:6px;align-items:center}
+.it-url-single input[type=text]{flex:1;padding:6px 9px;background:var(--bg2);border:1px solid var(--bdr);border-radius:6px;color:var(--fg);font-size:13px}
+.it-url-bulk-ta{width:100%;min-height:90px;max-height:160px;resize:vertical;background:var(--bg2);border:1px solid var(--bdr);border-radius:6px;padding:7px;color:var(--fg);font-size:12px;font-family:monospace;box-sizing:border-box}
+.it-url-bulk-ta::placeholder{color:var(--fg2)}
+.it-url-load-btn{padding:7px 16px;background:var(--acc);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600}
+.it-url-load-btn:hover{background:var(--acc2)}
+.it-url-count{font-size:11px;color:var(--acc);font-weight:600;margin-top:3px}
 </style>
 </head>
 <body>
@@ -250,6 +274,7 @@ button.success{background:var(--good);color:#fff;border-color:var(--good)}
           <button data-val="folder">Folder</button>
           <button data-val="zip">ZIP</button>
           <button data-val="excel">Excel/CSV</button>
+          <button data-val="urls">URLs</button>
         </div>
         <div id="corsField" style="display:none">
           <label><input type="checkbox" id="useCorsProxy"> Route through CORS proxy</label>
@@ -266,7 +291,18 @@ button.success{background:var(--good);color:#fff;border-color:var(--good)}
       </div>
     </div>
 
-    <!-- SHAPE -->
+    <!-- URL INPUT AREA -->
+        <div id="urlInputArea" class="url-input-area">
+          <div class="url-single-row">
+            <input type="text" id="sgSingleUrl" placeholder="Paste a single image URL&hellip;">
+            <button class="url-add-btn" onclick="sgAddSingleUrl()">+ Add</button>
+          </div>
+          <div class="url-bulk-label">Or paste multiple URLs (one per line):</div>
+          <textarea class="url-bulk-ta" id="sgBulkUrls" placeholder="https://example.com/img1.jpg&#10;https://example.com/img2.jpg"></textarea>
+          <button class="url-load-btn" onclick="sgLoadUrls()">&#128257; Load URLs</button>
+          <div class="url-count-badge" id="sgUrlCount"></div>
+        </div>
+        <!-- SHAPE -->
     <div class="section">
       <div class="section-head">◼ Swatch Shape</div>
       <div class="section-body">
@@ -544,6 +580,20 @@ button.success{background:var(--good);color:#fff;border-color:var(--good)}
     <div class="it-mr">
       <button class="it-mb active" id="itModeFiles" onclick="itSetMode('files')">🖼 Images</button>
       <button class="it-mb" id="itModeExcel" onclick="itSetMode('excel')">📊 Excel/CSV</button>
+    
+      <button class="it-mb" id="itModeUrls" onclick="itSetMode('urls')">&#127760; URL(s)</button></div>
+    
+    <div id="itUrlArea" class="it-url-area">
+      <div class="it-url-single">
+        <input type="text" id="itSingleUrl" placeholder="Paste a single image URL&hellip;">
+        <button class="url-add-btn" onclick="itAddSingleUrl()">+ Add</button>
+      </div>
+      <div class="url-bulk-label">Or paste multiple URLs (one per line):</div>
+      <textarea class="it-url-bulk-ta" id="itBulkUrls" placeholder="https://example.com/img1.jpg
+https://example.com/img2.jpg
+&hellip;"></textarea>
+      <button class="it-url-load-btn" onclick="itLoadUrls()">&#128257; Load URLs</button>
+      <div class="it-url-count" id="itUrlCount"></div>
     </div>
     <div class="it-drop" id="itDrop">
       <div style="font-size:22px;opacity:.5;margin-bottom:4px">🖼</div>
@@ -1018,8 +1068,9 @@ function rebuildItemsFromRows() {
   state.excelRows.forEach((row,idx)=>{
     const url=String(row[state.excelUrlCol]||'').trim();
     if(!/^https?:\/\//i.test(url)) return;
-    state.items.push({ id:state.nextId++, sourceUrl:url, name:urlToFilename(url,idx),
-      srcW:null,srcH:null,srcSize:null,srcUrl:null, status:'pending', rowIndex:idx, outputs:[] });
+    const _hdrs=state.excelHeaders||[]; const _skuCol=_hdrs.find(h=>/^sku/i.test(String(h))); const _nmCol=_hdrs.find(h=>/^(name|title|product)/i.test(String(h))); const _sku=_skuCol?String(row[_skuCol]||'').trim():null; const _nm=_nmCol?String(row[_nmCol]||'').trim():null;
+      state.items.push({ id:state.nextId++, sourceUrl:url, name:urlToFilename(url,idx),
+      srcW:null,srcH:null,srcSize:null,srcUrl:null, status:'pending', rowIndex:idx, outputs:[], sku:_sku||null, rowName:_nm||null });
   });
   render();
 }
@@ -1351,7 +1402,7 @@ async function generateSwatches(it,opts) {
   const img=await loadImg(it.srcUrl);
   const box=computeCropBox(img,opts);
   const solidColor=opts.shape==='color'?extractDominantColor(img,box,opts.bgThresh):null;
-  const baseName=(it.name||'image').replace(/\.[^.]+$/,'');
+  const _rawBase=(it.name||'image').replace(/\.[^.]+$/,''); const baseName=((it.sku&&String(it.sku).trim())?String(it.sku).trim().replace(/[^\w\-_.]/g,'_'):((it.rowName&&String(it.rowName).trim())?String(it.rowName).trim().replace(/[^\w\-_. ]/g,'_').replace(/\s+/g,'_'):_rawBase));
   const ext=({'image/jpeg':'jpg','image/png':'png','image/webp':'webp'}[opts.format])||'png';
   const outputs=[];
   for(let i=0;i<opts.sizes.length;i++){
@@ -1792,7 +1843,8 @@ itD.sheetSelect.addEventListener('change',()=>itLoadSht(itD.sheetSelect.value));
 itD.urlColSelect.addEventListener('change',()=>{itSt.excelUrlCol=itD.urlColSelect.value;itRebuildRows();});
 function itRebuildRows(){
   itSt.items.forEach(it=>{if(it.srcUrl)URL.revokeObjectURL(it.srcUrl);});itSt.items=[];
-  itSt.excelRows.forEach((row,idx)=>{const url=String(row[itSt.excelUrlCol]||'').trim();if(!/^https?:\/\//i.test(url))return;itSt.items.push({id:itSt.nextId++,sourceUrl:url,name:_u2f(url,idx),srcW:null,srcH:null,srcSize:null,srcUrl:null,status:'pending',rowIndex:idx,output:null});});
+  itSt.excelRows.forEach((row,idx)=>{const url=String(row[itSt.excelUrlCol]||'').trim();if(!/^https?:\/\//i.test(url))return;const _itHdrs=itSt.excelHeaders||[]; const _itSkuCol=_itHdrs.find(h=>/^sku/i.test(String(h))); const _itNmCol=_itHdrs.find(h=>/^(name|title|product)/i.test(String(h))); const _itSku=_itSkuCol?String(row[_itSkuCol]||'').trim():null; const _itNm=_itNmCol?String(row[_itNmCol]||'').trim():null;
+    itSt.items.push({id:itSt.nextId++,sourceUrl:url,name:_u2f(url,idx),srcW:null,srcH:null,srcSize:null,srcUrl:null,status:'pending',rowIndex:idx,output:null,sku:_itSku||null,rowName:_itNm||null});});
   itRenderIT();
 }
 const _esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1852,7 +1904,7 @@ async function itProcessAll(){
         if(it.outputUrl)URL.revokeObjectURL(it.outputUrl);
         const res=await itTransform(it);
         it.outputBlob=res.blob;it.outputUrl=URL.createObjectURL(res.blob);it.outW=res.w;it.outH=res.h;it.outputSize=res.blob.size;
-        it.outputName=it.name.replace(/\.[^.]+$/,'')+'.'+res.ext;it.status='done';
+        it.outputName=(((it.sku&&String(it.sku).trim())?String(it.sku).trim().replace(/[^\w\-_.]/g,'_'):((it.rowName&&String(it.rowName).trim())?String(it.rowName).trim().replace(/[^\w\-_. ]/g,'_').replace(/\s+/g,'_'):(it.name||'image_'+String((itSt.items||[]).indexOf(it)+1).padStart(4,'0')).replace(/\.[^.]+$/,'')))||'image')+'.'+res.ext;it.status='done';
         if(it.sourceUrl&&it.srcUrl){URL.revokeObjectURL(it.srcUrl);it.srcUrl=null;}
       }catch(e){it.errorMsg=e?.message?e.message.substring(0,35):'Failed';it.status='error';}
       done++;if(done%4===0||done===queue.length)itRenderIT();
@@ -1922,6 +1974,130 @@ function itBuildRep(){
 function itDlExcel(){if(!itSt.excelRows)return;const buf=itBuildRep();const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});_itDL(blob,itSt.excelFileName.replace(/\.[^.]+$/,'')+'-transformed-report.xlsx');}
 itRenderIT();
 
+
+
+/* ========================================================
+   SWATCH GENERATOR -- URL INPUT MODE
+   ======================================================== */
+function sgAddSingleUrl(){
+  const inp=document.getElementById('sgSingleUrl');
+  if(!inp)return;
+  const url=(inp.value||'').trim();
+  if(!url)return;
+  const ta=document.getElementById('sgBulkUrls');
+  if(ta){const existing=(ta.value||'').trim();ta.value=existing?existing+'\n'+url:url;}
+  inp.value='';sgUpdateUrlCount();
+}
+function sgUpdateUrlCount(){
+  const ta=document.getElementById('sgBulkUrls');
+  const badge=document.getElementById('sgUrlCount');
+  if(!ta||!badge)return;
+  const urls=(ta.value||'').split('\n').map(u=>u.trim()).filter(Boolean);
+  badge.textContent=urls.length>0?urls.length+' URL'+(urls.length===1?'':'s')+' ready':'';
+}
+function sgLoadUrls(){
+  const ta=document.getElementById('sgBulkUrls');
+  if(!ta)return;
+  const urls=(ta.value||'').split('\n').map(u=>u.trim()).filter(u=>/^https?:\/\//i.test(u));
+  if(!urls.length){alert('No valid URLs found. Each URL must start with http:// or https://');return;}
+  state.items.forEach(it=>{if(it.srcUrl)URL.revokeObjectURL(it.srcUrl);});
+  state.items=urls.map((url,i)=>({
+    id:state.nextId++,sourceUrl:url,
+    name:url.split('/').pop().split('?')[0]||('url_'+String(i+1).padStart(4,'0')),
+    srcW:null,srcH:null,srcSize:null,srcUrl:null,
+    status:'pending',rowIndex:i,outputs:[],sku:null,rowName:null
+  }));
+  document.getElementById('sgUrlCount').textContent=state.items.length+' URL'+(state.items.length===1?'':'s')+' loaded';
+  render();
+  const pb=document.getElementById('processBtn');if(pb)pb.disabled=false;
+}
+(function _patchSgModeForUrls(){
+  const mt=document.getElementById('modeToggle');if(!mt)return;
+  mt.addEventListener('click',function(e){
+    const btn=e.target.closest('button');if(!btn)return;
+    const val=btn.dataset.val;
+    const urlArea=document.getElementById('urlInputArea');
+    const dropZone=document.querySelector('.drop-zone')||document.getElementById('dropZone');
+    if(val==='urls'){
+      if(urlArea)urlArea.classList.add('active');
+      if(dropZone)dropZone.style.display='none';
+      ['corsField','sheetField','urlColField'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+    }else{
+      if(urlArea)urlArea.classList.remove('active');
+      if(dropZone)dropZone.style.display='';
+    }
+  });
+  const bulkTa=document.getElementById('sgBulkUrls');
+  if(bulkTa)bulkTa.addEventListener('input',sgUpdateUrlCount);
+  const si=document.getElementById('sgSingleUrl');
+  if(si)si.addEventListener('keypress',function(e){if(e.key==='Enter')sgAddSingleUrl();});
+})();
+
+/* ========================================================
+   IMAGE TRANSFORMER -- URL INPUT MODE
+   ======================================================== */
+function itAddSingleUrl(){
+  const inp=document.getElementById('itSingleUrl');if(!inp)return;
+  const url=(inp.value||'').trim();if(!url)return;
+  const ta=document.getElementById('itBulkUrls');
+  if(ta){const existing=(ta.value||'').trim();ta.value=existing?existing+'\n'+url:url;}
+  inp.value='';itUpdateUrlCount();
+}
+function itUpdateUrlCount(){
+  const ta=document.getElementById('itBulkUrls');
+  const badge=document.getElementById('itUrlCount');if(!ta||!badge)return;
+  const urls=(ta.value||'').split('\n').map(u=>u.trim()).filter(Boolean);
+  badge.textContent=urls.length>0?urls.length+' URL'+(urls.length===1?'':'s')+' ready':'';
+}
+function itLoadUrls(){
+  const ta=document.getElementById('itBulkUrls');if(!ta)return;
+  const urls=(ta.value||'').split('\n').map(u=>u.trim()).filter(u=>/^https?:\/\//i.test(u));
+  if(!urls.length){alert('No valid URLs found. Each URL must start with http:// or https://');return;}
+  itSt.items.forEach(it=>{if(it.srcUrl)URL.revokeObjectURL(it.srcUrl);if(it.outputUrl)URL.revokeObjectURL(it.outputUrl);});
+  itSt.items=urls.map((url,i)=>({
+    id:itSt.nextId++,sourceUrl:url,
+    name:url.split('/').pop().split('?')[0]||('url_'+String(i+1).padStart(4,'0')),
+    srcW:null,srcH:null,srcSize:null,srcUrl:null,
+    status:'pending',rowIndex:i,output:null,
+    outputBlob:null,outputUrl:null,outputName:null,sku:null,rowName:null
+  }));
+  itSt.mode='urls';
+  document.getElementById('itUrlCount').textContent=itSt.items.length+' URL'+(itSt.items.length===1?'':'s')+' loaded';
+  itRenderIT();
+  const pb=document.getElementById('itProcessBtn');if(pb)pb.disabled=false;
+}
+const _origItSetMode2=window.itSetMode;
+window.itSetMode=function itSetMode(mode){
+  const urlArea=document.getElementById('itUrlArea');
+  const drop=document.getElementById('itDrop');
+  const corsF=document.getElementById('itCorsField');
+  const hint=document.getElementById('itModeHint');
+  ['itModeFiles','itModeExcel','itModeUrls'].forEach(id=>{const b=document.getElementById(id);if(b)b.classList.remove('active');});
+  const activeMap={files:'itModeFiles',excel:'itModeExcel',urls:'itModeUrls'};
+  const ab=document.getElementById(activeMap[mode]);if(ab)ab.classList.add('active');
+  if(mode==='urls'){
+    if(urlArea)urlArea.classList.add('active');
+    if(drop)drop.style.display='none';
+    if(corsF)corsF.style.display='none';
+    if(hint)hint.style.display='none';
+    itSt.mode='urls';
+  }else{
+    if(urlArea)urlArea.classList.remove('active');
+    if(_origItSetMode2)_origItSetMode2(mode);
+  }
+};
+(function _patchItModeButtons(){
+  const mf=document.getElementById('itModeFiles');
+  const me=document.getElementById('itModeExcel');
+  const mu=document.getElementById('itModeUrls');
+  if(mf)mf.onclick=()=>window.itSetMode('files');
+  if(me)me.onclick=()=>window.itSetMode('excel');
+  if(mu)mu.onclick=()=>window.itSetMode('urls');
+  const ta=document.getElementById('itBulkUrls');
+  if(ta)ta.addEventListener('input',itUpdateUrlCount);
+  const si=document.getElementById('itSingleUrl');
+  if(si)si.addEventListener('keypress',e=>{if(e.key==='Enter')itAddSingleUrl();});
+})();
 </script>
 </body>
 </html>
