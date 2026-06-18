@@ -40,7 +40,7 @@ try:
 except ImportError:
     HAS_TQDM = False
 
-VERSION = "2.0.0"
+VERSION = "2.1.0"
 SHAPES = ["square","circle","rounded","pill","oval","diamond","hexagon"]
 BG_PRESETS = {"white":(255,255,255,255),"black":(0,0,0,255),
               "transparent":(0,0,0,0),"gray":(128,128,128,255)}
@@ -233,6 +233,75 @@ def write_report(results,out):
             max(len(str(c.value or "")) for c in col)+2,50)
     wb.save(out)
 
+
+
+# ─── Image Transform (Pillow) ─────────────────────────────────────
+def transform_image(img, tw, th, fit="crop", pad_color="#ffffff",
+                    fmt="PNG", quality=92, upscale=False):
+    """Resize a PIL image to tw x th with the chosen fit mode."""
+    sw, sh = img.size
+    if not upscale:
+        tw = min(tw, sw); th = min(th, sh)
+    buf = io.BytesIO()
+    if fit == "pad":
+        try:
+            from PIL import ImageColor
+            pc = ImageColor.getrgb(pad_color) + (255,)
+        except Exception:
+            pc = (255, 255, 255, 255)
+        r = min(tw/sw, th/sh); nw, nh = int(sw*r), int(sh*r)
+        rs = img.resize((nw, nh), Image.LANCZOS)
+        canvas = Image.new("RGBA", (tw, th), pc)
+        canvas.paste(rs, ((tw-nw)//2, (th-nh)//2))
+        out = canvas
+    elif fit == "stretch":
+        out = img.resize((tw, th), Image.LANCZOS)
+    else:  # crop/fill
+        r = max(tw/sw, th/sh); nw, nh = int(sw*r), int(sh*r)
+        rs = img.resize((nw, nh), Image.LANCZOS)
+        left, top = (nw-tw)//2, (nh-th)//2
+        out = rs.crop((left, top, left+tw, top+th))
+    if fmt.upper() in ("JPEG","JPG"):
+        out.convert("RGB").save(buf, format="JPEG", quality=quality, optimize=True)
+    elif fmt.upper() == "WEBP":
+        out.save(buf, format="WEBP", quality=quality)
+    else:
+        out.save(buf, format="PNG", optimize=True)
+    return buf.getvalue()
+
+
+def process_row_transform(row, idx, session, args):
+    """Process one row in --mode transform."""
+    res = {"idx":idx,"sku":None,"row_name":None,"url":None,
+           "swatches":{},"status":"ok","error":None,
+           "output_names":{},"orig_filename":None,"ms":0}
+    t0 = time.time()
+    try:
+        uc = args.url_col or auto_col(list(row.keys()), r"(image|img|photo|url|src|thumb)")
+        url = str(row.get(uc) or "").strip() if uc else ""
+        res["url"] = url
+        res["sku"] = str(row.get(args.sku_col) or "").strip() if args.sku_col else None
+        res["row_name"] = str(row.get(args.name_col) or "").strip() if args.name_col else None
+        if not re.match(r"^https?://", url, re.I): raise ValueError(f"No URL in row {idx+1}")
+        img, fname = download_image(url, session, args.timeout, args.cors_proxy or "")
+        res["orig_filename"] = fname
+        base = smart_name(res["sku"], res["row_name"], fname, idx)
+        tw = getattr(args, "transform_width", 1200)
+        th = getattr(args, "transform_height", 1200)
+        ext_m = {"PNG":"png","JPEG":"jpg","JPG":"jpg","WEBP":"webp"}
+        ext = ext_m.get(args.output_format.upper(), "jpg")
+        data = transform_image(img, tw, th, fit=getattr(args,"fit","crop"),
+                               pad_color=getattr(args,"pad_color","#ffffff"),
+                               fmt=args.output_format,
+                               quality=getattr(args,"quality",92),
+                               upscale=getattr(args,"upscale",False))
+        res["swatches"][0] = data
+        res["output_names"][0] = f"{base}.{ext}"
+    except Exception as e:
+        res["status"] = "error"; res["error"] = str(e)
+    res["ms"] = int((time.time()-t0)*1000)
+    return res
+
 def parse_args():
     p=argparse.ArgumentParser(description="Bulk Swatch Generator v"+VERSION,
                                formatter_class=argparse.RawDescriptionHelpFormatter,epilog=__doc__)
@@ -249,6 +318,20 @@ def parse_args():
     p.add_argument("--sku-col",default=None,help="SKU col for smart naming")
     p.add_argument("--name-col",default=None,help="Name/Title col for smart naming")
     p.add_argument("--layout",default="flat",choices=["flat","by-product","by-size"])
+    p.add_argument("--mode",default="swatch",choices=["swatch","transform"],
+                   help="Processing mode: swatch (default) or transform")
+    p.add_argument("--transform-width","--tw",default=1200,type=int,dest="transform_width",
+                   help="Target width px for transform mode (default: 1200)")
+    p.add_argument("--transform-height","--th",default=1200,type=int,dest="transform_height",
+                   help="Target height px for transform mode (default: 1200)")
+    p.add_argument("--fit",default="crop",choices=["crop","pad","stretch"],
+                   help="Fit mode for transform: crop|pad|stretch (default: crop)")
+    p.add_argument("--pad-color",default="#ffffff",dest="pad_color",
+                   help="Pad background color hex for transform pad mode")
+    p.add_argument("--upscale",action="store_true",
+                   help="Allow upscaling beyond original dimensions (transform mode)")
+    p.add_argument("--quality",default=92,type=int,
+                   help="JPEG/WebP quality for transform mode (default: 92)")
     p.add_argument("--version","-v",action="store_true"); return p.parse_args()
 
 def main():
@@ -257,6 +340,7 @@ def main():
     args.sizes=[int(s.strip()) for s in args.sizes.split(",") if s.strip().isdigit()]
     if not args.sizes: sys.exit("No valid sizes. Use --sizes 300,600,1200")
     print(f"\nBulk Swatch Generator v{VERSION}\nInput : {args.input}\nSizes : {args.sizes}\nShape : {args.shape}\n")
+    process_fn = process_row if args.mode == "swatch" else process_row_transform
     if os.path.isdir(args.input):
         results=process_folder(args.input,args)
     else:
@@ -277,7 +361,7 @@ def main():
         results=[None]*len(rows)
         bar=tqdm(total=len(rows),desc="Processing",unit="img") if HAS_TQDM else None
         with concurrent.futures.ThreadPoolExecutor(max_workers=args.concurrency) as pool:
-            futs={pool.submit(process_row,rows[i],i,session,args):i for i in range(len(rows))}
+            futs={pool.submit(process_fn,rows[i],i,session,args):i for i in range(len(rows))}
             done=0
             for fut in concurrent.futures.as_completed(futs):
                 i=futs[fut]
@@ -294,7 +378,7 @@ def main():
     ok=sum(1 for r in results if r and r["status"]=="ok")
     err=len(results)-ok
     print(f"\nDone: {ok} OK, {err} errors")
-    if ok>0: write_zip(results,args.out,args.layout); print(f"ZIP    : {args.out}")
+    if ok>0: write_zip(results,args.out,args.layout); print(f"ZIP [{args.mode}] : {args.out}")
     write_report(results,args.report); print(f"Report : {args.report}\n")
     if err>0: sys.exit(1)
 
