@@ -1,0 +1,1226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Image Transformer — Resize & Aspect Ratio</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --panel-2: #1f242d;
+    --border: #2a313d;
+    --text: #e7ecf3;
+    --muted: #8a93a4;
+    --accent: #6aa6ff;
+    --accent-2: #4f8cff;
+    --good: #5dd39e;
+    --warn: #ffb454;
+    --bad: #ff6b6b;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  .wrap {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 32px 24px 80px;
+  }
+  header { margin-bottom: 24px; }
+  h1 {
+    margin: 0 0 6px;
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .sub { color: var(--muted); font-size: 14px; }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    gap: 20px;
+  }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+  }
+  .panel h2 {
+    margin: 0 0 14px;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    font-weight: 600;
+  }
+
+  .drop {
+    display: block;
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 28px 16px;
+    text-align: center;
+    transition: all 0.15s ease;
+    cursor: pointer;
+    background: var(--panel-2);
+  }
+  .drop:hover, .drop.dragover {
+    border-color: var(--accent);
+    background: rgba(106, 166, 255, 0.06);
+  }
+  .drop strong { display: block; margin-bottom: 4px; font-size: 15px; }
+  .drop small { display: block; color: var(--muted); font-size: 12px; line-height: 1.4; }
+  .drop input { display: none; }
+
+  .field { margin-bottom: 14px; }
+  .field label {
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .row { display: flex; gap: 8px; }
+  .row > * { flex: 1; }
+
+  input[type="number"], input[type="text"], select {
+    width: 100%;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 9px 11px;
+    border-radius: 8px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  input[type="number"]:focus, input[type="text"]:focus, select:focus {
+    border-color: var(--accent);
+  }
+  input[type="range"] {
+    width: 100%;
+    accent-color: var(--accent);
+  }
+
+  .toggle-group {
+    display: flex;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 3px;
+    gap: 3px;
+  }
+  .toggle-group button {
+    flex: 1;
+    background: transparent;
+    color: var(--muted);
+    border: none;
+    padding: 7px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .toggle-group button.active {
+    background: var(--accent-2);
+    color: white;
+  }
+
+  .checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--muted);
+    cursor: pointer;
+    user-select: none;
+  }
+  .checkbox input { accent-color: var(--accent); }
+
+  .btn {
+    background: var(--accent-2);
+    color: white;
+    border: none;
+    padding: 11px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    width: 100%;
+    transition: background 0.15s;
+  }
+  .btn:hover { background: var(--accent); }
+  .btn:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
+  .btn.secondary {
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn.secondary:hover { border-color: var(--accent); }
+
+  .files-empty {
+    text-align: center;
+    color: var(--muted);
+    padding: 60px 20px;
+    font-size: 14px;
+  }
+
+  .files {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 14px;
+  }
+  .card {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .card .thumb {
+    aspect-ratio: 1;
+    background: #0a0c10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+  }
+  .card .thumb img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
+  .card .badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: rgba(0,0,0,0.7);
+    color: white;
+    font-size: 11px;
+    padding: 3px 7px;
+    border-radius: 4px;
+  }
+  .card .badge.done { background: var(--good); color: #0a0c10; }
+  .card .badge.error { background: var(--bad); }
+  .card .meta {
+    padding: 10px 12px;
+    font-size: 12px;
+    border-top: 1px solid var(--border);
+  }
+  .card .meta .name {
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-bottom: 3px;
+    font-weight: 500;
+  }
+  .card .meta .info { color: var(--muted); font-size: 11px; }
+  .card .actions {
+    display: flex;
+    gap: 6px;
+    padding: 8px 10px;
+    border-top: 1px solid var(--border);
+  }
+  .card .actions button {
+    flex: 1;
+    font-size: 11px;
+    padding: 6px;
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  .card .actions button:hover { color: var(--text); border-color: var(--accent); }
+  .card .actions button.primary { color: var(--accent); border-color: var(--accent); }
+
+  .actions-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .actions-bar .btn { flex: 1; }
+
+  .preset-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+  .preset-grid button {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 7px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    text-align: left;
+  }
+  .preset-grid button:hover { border-color: var(--accent); color: var(--text); }
+  .preset-grid button .ratio { color: var(--accent); font-weight: 600; }
+
+  .quality-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .quality-row span {
+    min-width: 38px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-size: 13px;
+    color: var(--accent);
+  }
+
+  .color-input {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .color-input input[type="color"] {
+    width: 38px;
+    height: 38px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--panel-2);
+    padding: 2px;
+    cursor: pointer;
+  }
+
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Image Transformer</h1>
+    <div class="sub">Resize, reshape, and re-encode images locally in your browser. Nothing uploads anywhere.</div>
+  </header>
+
+  <div class="layout">
+    <aside class="panel">
+      <h2>Upload</h2>
+      <div class="toggle-group" style="margin-bottom:10px;" id="modeToggle">
+        <button data-val="files" class="active">Image files</button>
+        <button data-val="excel">Excel of URLs</button>
+      </div>
+      <label class="drop" id="drop">
+        <strong id="dropTitle">Drop images here</strong>
+        <small id="dropSub">or click to browse — supports batch</small>
+        <input type="file" id="fileInput" accept="image/*" multiple />
+      </label>
+      <small style="display:block;margin-top:8px;color:var(--muted);font-size:11px;line-height:1.4;" id="modeHint">
+        Drop one or many image files. Everything runs locally.
+      </small>
+
+      <div class="field" id="corsField" style="display:none;margin-top:14px;">
+        <label class="checkbox">
+          <input type="checkbox" id="useCorsProxy" />
+          Route through CORS proxy (for hosts that block direct fetch)
+        </label>
+        <input type="text" id="corsProxyUrl" value="https://corsproxy.io/?url=" style="margin-top:6px;font-size:12px;" />
+        <small style="color:var(--muted);font-size:11px;display:block;margin-top:4px;line-height:1.4;">
+          The image URL is appended to this prefix. Default works for most hosts. Routes images through a third-party proxy — do not use for sensitive content.
+        </small>
+      </div>
+
+      <div class="field" id="sheetField" style="display:none;">
+        <label>Sheet</label>
+        <select id="sheetSelect"></select>
+      </div>
+      <div class="field" id="urlColField" style="display:none;">
+        <label>URL column</label>
+        <select id="urlColSelect"></select>
+      </div>
+
+      <h2 style="margin-top:22px;">Dimensions</h2>
+      <div class="field">
+        <div class="row">
+          <div>
+            <label>Width (px)</label>
+            <input type="number" id="width" value="1200" min="1" max="10000" />
+          </div>
+          <div>
+            <label>Height (px)</label>
+            <input type="number" id="height" value="1200" min="1" max="10000" />
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Aspect ratio presets</label>
+        <div class="preset-grid">
+          <button data-w="1" data-h="1"><span class="ratio">1:1</span> Square</button>
+          <button data-w="4" data-h="3"><span class="ratio">4:3</span> Classic</button>
+          <button data-w="3" data-h="2"><span class="ratio">3:2</span> Photo</button>
+          <button data-w="1.7" data-h="1"><span class="ratio">1.7:1</span> Cinema</button>
+          <button data-w="16" data-h="9"><span class="ratio">16:9</span> Wide</button>
+          <button data-w="9" data-h="16"><span class="ratio">9:16</span> Story</button>
+          <button data-w="2" data-h="3"><span class="ratio">2:3</span> Portrait</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Custom aspect ratio</label>
+        <div class="row" style="align-items:flex-end;">
+          <div>
+            <input type="number" id="customW" placeholder="W" step="any" min="0.01" />
+          </div>
+          <div style="flex:0 0 14px;text-align:center;color:var(--muted);padding-bottom:9px;">:</div>
+          <div>
+            <input type="number" id="customH" placeholder="H" step="any" min="0.01" />
+          </div>
+          <button class="btn secondary" id="applyCustom" style="flex:0 0 auto;padding:9px 14px;">Apply</button>
+        </div>
+        <small style="color:var(--muted);font-size:11px;display:block;margin-top:6px;">
+          E.g. 1.7 and 1 → 1.7:1. The longer side keeps the current dimension.
+        </small>
+      </div>
+
+      <h2 style="margin-top:22px;">Fit mode</h2>
+      <div class="field">
+        <div class="toggle-group" id="fitMode">
+          <button data-val="cover" class="active">Crop (fill)</button>
+          <button data-val="contain">Pad</button>
+          <button data-val="stretch">Stretch</button>
+        </div>
+      </div>
+
+      <div class="field" id="padColorField">
+        <label>Pad color</label>
+        <div class="color-input">
+          <input type="color" id="padColor" value="#ffffff" />
+          <input type="text" id="padColorText" value="#ffffff" />
+        </div>
+      </div>
+
+      <h2 style="margin-top:22px;">Output</h2>
+      <div class="field">
+        <label>Format</label>
+        <select id="format">
+          <option value="original">Keep original</option>
+          <option value="image/jpeg">JPEG</option>
+          <option value="image/png">PNG</option>
+          <option value="image/webp">WebP</option>
+        </select>
+      </div>
+
+      <div class="field" id="qualityField">
+        <label>Quality</label>
+        <div class="quality-row">
+          <input type="range" id="quality" min="10" max="100" value="92" />
+          <span id="qualityVal">92</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="checkbox">
+          <input type="checkbox" id="upscale" />
+          Allow upscaling beyond original size
+        </label>
+      </div>
+
+      <button class="btn" id="processBtn" disabled>Transform all</button>
+    </aside>
+
+    <section class="panel">
+      <div class="actions-bar">
+        <button class="btn secondary" id="downloadAll" disabled>Download all (.zip)</button>
+        <button class="btn secondary" id="downloadExcel" disabled style="display:none;">Download report (.xlsx)</button>
+        <button class="btn secondary" id="clearAll" disabled>Clear</button>
+      </div>
+      <div id="filesContainer">
+        <div class="files-empty">No images yet — drop some on the left to get started.</div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const drop = $('drop');
+  const fileInput = $('fileInput');
+  const widthEl = $('width');
+  const heightEl = $('height');
+  const fitModeEl = $('fitMode');
+  const padColorEl = $('padColor');
+  const padColorTextEl = $('padColorText');
+  const padColorField = $('padColorField');
+  const formatEl = $('format');
+  const qualityEl = $('quality');
+  const qualityVal = $('qualityVal');
+  const qualityField = $('qualityField');
+  const upscaleEl = $('upscale');
+  const processBtn = $('processBtn');
+  const downloadAllBtn = $('downloadAll');
+  const clearAllBtn = $('clearAll');
+  const filesContainer = $('filesContainer');
+  const downloadExcelBtn = $('downloadExcel');
+  const dropTitle = $('dropTitle');
+  const dropSub = $('dropSub');
+  const modeHint = $('modeHint');
+  const modeToggle = $('modeToggle');
+
+  let items = []; // { id, file?, sourceUrl?, srcUrl, name, srcW, srcH, srcSize, outBlob, outUrl, outW, outH, outSize, status, rowIndex? }
+  let nextId = 1;
+  let fitMode = 'cover';
+  let inputMode = 'files'; // 'files' or 'excel'
+  let excelWorkbook = null;
+  let excelRows = null;
+  let excelHeaders = null;
+  let excelUrlCol = null;
+  let excelFileName = 'urls.xlsx';
+
+  const corsField = document.getElementById('corsField');
+  const useCorsProxyEl = document.getElementById('useCorsProxy');
+  const corsProxyUrlEl = document.getElementById('corsProxyUrl');
+  const sheetField = document.getElementById('sheetField');
+  const sheetSelect = document.getElementById('sheetSelect');
+  const urlColField = document.getElementById('urlColField');
+  const urlColSelect = document.getElementById('urlColSelect');
+
+  // ---- UI events ----
+  drop.addEventListener('click', () => fileInput.click());
+  drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('dragover'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('dragover'));
+  drop.addEventListener('drop', (e) => {
+    e.preventDefault();
+    drop.classList.remove('dragover');
+    handleAnyDrop(e.dataTransfer.files);
+  });
+  fileInput.addEventListener('change', (e) => handleAnyDrop(e.target.files));
+
+  document.querySelectorAll('#modeToggle button').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('#modeToggle button').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      inputMode = b.dataset.val;
+      if (inputMode === 'files') {
+        fileInput.setAttribute('accept', 'image/*');
+        fileInput.setAttribute('multiple', '');
+        dropTitle.textContent = 'Drop images here';
+        dropSub.textContent = 'or click to browse — supports batch';
+        modeHint.textContent = 'Drop one or many image files (tested up to 300+ in a batch). Processes 8 in parallel. Everything runs locally.';
+        downloadExcelBtn.style.display = 'none';
+        corsField.style.display = 'none';
+        sheetField.style.display = 'none';
+        urlColField.style.display = 'none';
+      } else {
+        fileInput.setAttribute('accept', '.xlsx,.xls,.csv');
+        fileInput.removeAttribute('multiple');
+        dropTitle.textContent = 'Drop Excel/CSV here';
+        dropSub.textContent = 'any sheet with an image-URL column';
+        modeHint.textContent = 'Output: a ZIP of transformed images + an .xlsx report with status & output filename per row. If your URL host blocks CORS, enable the proxy below.';
+        downloadExcelBtn.style.display = '';
+        corsField.style.display = '';
+      }
+    });
+  });
+
+  document.querySelectorAll('#fitMode button').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('#fitMode button').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      fitMode = b.dataset.val;
+      padColorField.classList.toggle('hidden', fitMode !== 'contain');
+    });
+  });
+
+  function applyRatio(w, h) {
+    if (!(w > 0) || !(h > 0)) return;
+    const base = Math.max(parseInt(widthEl.value) || 1200, parseInt(heightEl.value) || 1200);
+    if (w >= h) {
+      widthEl.value = base;
+      heightEl.value = Math.round(base * h / w);
+    } else {
+      heightEl.value = base;
+      widthEl.value = Math.round(base * w / h);
+    }
+  }
+
+  document.querySelectorAll('.preset-grid button').forEach(b => {
+    b.addEventListener('click', () => applyRatio(parseFloat(b.dataset.w), parseFloat(b.dataset.h)));
+  });
+
+  const applyCustomBtn = document.getElementById('applyCustom');
+  const customWEl = document.getElementById('customW');
+  const customHEl = document.getElementById('customH');
+  function applyCustomRatio() {
+    const cw = parseFloat(customWEl.value);
+    const ch = parseFloat(customHEl.value);
+    if (!(cw > 0) || !(ch > 0)) {
+      alert('Enter two positive numbers for the custom ratio (e.g. 1.7 and 1).');
+      return;
+    }
+    applyRatio(cw, ch);
+  }
+  applyCustomBtn.addEventListener('click', applyCustomRatio);
+  [customWEl, customHEl].forEach(el => {
+    el.addEventListener('keydown', (e) => { if (e.key === 'Enter') applyCustomRatio(); });
+  });
+
+  padColorEl.addEventListener('input', () => padColorTextEl.value = padColorEl.value);
+  padColorTextEl.addEventListener('change', () => {
+    if (/^#[0-9a-fA-F]{6}$/.test(padColorTextEl.value)) padColorEl.value = padColorTextEl.value;
+  });
+
+  qualityEl.addEventListener('input', () => qualityVal.textContent = qualityEl.value);
+
+  formatEl.addEventListener('change', () => {
+    const f = formatEl.value;
+    const showQuality = (f === 'image/jpeg' || f === 'image/webp' || f === 'original');
+    qualityField.classList.toggle('hidden', !showQuality);
+  });
+
+  processBtn.addEventListener('click', processAll);
+  downloadAllBtn.addEventListener('click', downloadAllZip);
+  downloadExcelBtn.addEventListener('click', downloadExcelReport);
+  clearAllBtn.addEventListener('click', () => {
+    items.forEach(it => {
+      if (it.srcUrl) URL.revokeObjectURL(it.srcUrl);
+      if (it.outUrl) URL.revokeObjectURL(it.outUrl);
+    });
+    items = [];
+    excelRows = null;
+    excelHeaders = null;
+    excelUrlCol = null;
+    render();
+  });
+
+  // ---- File intake ----
+  async function handleAnyDrop(fileList) {
+    if (!fileList || fileList.length === 0) return;
+    if (inputMode === 'excel') {
+      await handleExcel(fileList[0]);
+    } else {
+      await handleFiles(fileList);
+    }
+  }
+
+  async function handleExcel(file) {
+    excelFileName = file.name;
+    const buf = await file.arrayBuffer();
+    excelWorkbook = XLSX.read(buf, { type: 'array', cellHTML: false });
+    if (excelWorkbook.SheetNames.length === 0) {
+      alert('No sheets in this workbook.');
+      return;
+    }
+
+    // Populate sheet picker
+    sheetSelect.innerHTML = '';
+    excelWorkbook.SheetNames.forEach(n => {
+      const opt = document.createElement('option');
+      opt.value = n; opt.textContent = n;
+      sheetSelect.appendChild(opt);
+    });
+    sheetField.style.display = excelWorkbook.SheetNames.length > 1 ? '' : 'none';
+
+    // Auto-pick the sheet with the most URLs
+    const bestSheet = pickBestSheet(excelWorkbook);
+    sheetSelect.value = bestSheet;
+    loadSheet(bestSheet);
+  }
+
+  function pickBestSheet(wb) {
+    let best = wb.SheetNames[0];
+    let bestCount = -1;
+    for (const name of wb.SheetNames) {
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[name], { defval: '', raw: false });
+      let count = 0;
+      for (const r of rows) {
+        for (const v of Object.values(r)) {
+          if (typeof v === 'string' && /^https?:\/\//i.test(v.trim())) { count++; break; }
+        }
+      }
+      if (count > bestCount) { bestCount = count; best = name; }
+    }
+    return best;
+  }
+
+  function loadSheet(sheetName) {
+    const ws = excelWorkbook.Sheets[sheetName];
+    // Auto-detect header row: scan first 5 rows for the one with the most string cells
+    const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
+    let headerRow = 0;
+    let bestStringCount = 0;
+    for (let i = 0; i < Math.min(5, aoa.length); i++) {
+      const row = aoa[i] || [];
+      const stringCount = row.filter(c => typeof c === 'string' && c.trim() && !/^https?:\/\//i.test(c)).length;
+      if (stringCount > bestStringCount) { bestStringCount = stringCount; headerRow = i; }
+    }
+    const rows = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false, range: headerRow });
+    if (rows.length === 0) {
+      alert('Sheet "' + sheetName + '" has no rows.');
+      return;
+    }
+    excelHeaders = Object.keys(rows[0]);
+    excelRows = rows;
+
+    // Find candidate URL columns (any column with at least one http(s) cell)
+    const urlCandidates = excelHeaders.filter(h =>
+      rows.some(r => typeof r[h] === 'string' && /^https?:\/\//i.test(r[h].trim()))
+    );
+
+    // Populate URL column picker
+    urlColSelect.innerHTML = '';
+    excelHeaders.forEach(h => {
+      const opt = document.createElement('option');
+      opt.value = h;
+      const count = rows.filter(r => typeof r[h] === 'string' && /^https?:\/\//i.test(r[h].trim())).length;
+      opt.textContent = h + (count ? '  (' + count + ' URLs)' : '');
+      if (!urlCandidates.includes(h)) opt.disabled = true;
+      urlColSelect.appendChild(opt);
+    });
+    urlColField.style.display = '';
+
+    // Auto-pick best URL column: prefer named, then most URLs
+    let picked = excelHeaders.find(h => urlCandidates.includes(h) && /url|image|link|src|photo|thumb/i.test(h));
+    if (!picked) {
+      picked = urlCandidates.sort((a, b) =>
+        rows.filter(r => /^https?:\/\//i.test(String(r[b]||'').trim())).length -
+        rows.filter(r => /^https?:\/\//i.test(String(r[a]||'').trim())).length
+      )[0];
+    }
+    if (!picked) {
+      alert('Sheet "' + sheetName + '" has no columns with image URLs.');
+      return;
+    }
+    urlColSelect.value = picked;
+    excelUrlCol = picked;
+    rebuildItemsFromRows();
+  }
+
+  function rebuildItemsFromRows() {
+    items.forEach(it => {
+      if (it.srcUrl) URL.revokeObjectURL(it.srcUrl);
+      if (it.outUrl) URL.revokeObjectURL(it.outUrl);
+    });
+    items = [];
+    excelRows.forEach((row, idx) => {
+      const url = String(row[excelUrlCol] || '').trim();
+      if (!/^https?:\/\//i.test(url)) return;
+      items.push({
+        id: nextId++,
+        sourceUrl: url,
+        name: urlToFilename(url, idx),
+        srcW: null, srcH: null, srcSize: null,
+        srcUrl: null,
+        status: 'pending',
+        rowIndex: idx
+      });
+    });
+    render();
+  }
+
+  sheetSelect.addEventListener('change', () => loadSheet(sheetSelect.value));
+  urlColSelect.addEventListener('change', () => {
+    excelUrlCol = urlColSelect.value;
+    rebuildItemsFromRows();
+  });
+
+  function urlToFilename(url, idx) {
+    try {
+      const u = new URL(url);
+      const parts = u.pathname.split('/').filter(Boolean);
+      const last = parts[parts.length - 1] || ('image-' + (idx + 1));
+      return decodeURIComponent(last).replace(/[?#].*$/, '') || ('image-' + (idx + 1));
+    } catch {
+      return 'image-' + (idx + 1);
+    }
+  }
+
+  async function handleFiles(fileList) {
+    const newOnes = [];
+    for (const f of fileList) {
+      if (!f.type.startsWith('image/')) continue;
+      const url = URL.createObjectURL(f);
+      const dims = await getImageDims(url);
+      newOnes.push({
+        id: nextId++,
+        file: f,
+        srcUrl: url,
+        name: f.name,
+        srcW: dims.w,
+        srcH: dims.h,
+        srcSize: f.size,
+        status: 'ready'
+      });
+    }
+    items = items.concat(newOnes);
+    render();
+  }
+
+  function getImageDims(url) {
+    return new Promise((res, rej) => {
+      const img = new Image();
+      img.onload = () => res({ w: img.naturalWidth, h: img.naturalHeight });
+      img.onerror = rej;
+      img.src = url;
+    });
+  }
+
+  // ---- Rendering ----
+  function render() {
+    if (items.length === 0) {
+      filesContainer.innerHTML = '<div class="files-empty">No images yet — drop some on the left to get started.</div>';
+      processBtn.disabled = true;
+      downloadAllBtn.disabled = true;
+      downloadExcelBtn.disabled = true;
+      clearAllBtn.disabled = true;
+      return;
+    }
+    processBtn.disabled = false;
+    clearAllBtn.disabled = false;
+    const anyDone = items.some(it => it.status === 'done');
+    downloadAllBtn.disabled = !anyDone;
+    downloadExcelBtn.disabled = !(inputMode === 'excel' && excelRows);
+
+    const grid = document.createElement('div');
+    grid.className = 'files';
+    for (const it of items) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      const showUrl = it.outUrl || it.srcUrl || it.sourceUrl;
+      const badge = it.status === 'done'
+        ? `<span class="badge done">Done</span>`
+        : it.status === 'error'
+        ? `<span class="badge error">${escapeHtml(it.errorMsg || 'Error')}</span>`
+        : it.status === 'processing'
+        ? `<span class="badge">Working…</span>`
+        : it.status === 'queued'
+        ? `<span class="badge">Queued</span>`
+        : it.status === 'pending'
+        ? `<span class="badge">Pending</span>`
+        : '';
+      const info = it.status === 'done'
+        ? `${it.outW}×${it.outH} · ${formatBytes(it.outSize)}${it.srcW ? ` <span style="color:var(--muted)"> (was ${it.srcW}×${it.srcH} · ${formatBytes(it.srcSize)})</span>` : ''}`
+        : (it.srcW
+            ? `${it.srcW}×${it.srcH} · ${formatBytes(it.srcSize)}`
+            : (it.sourceUrl ? `<span style="color:var(--muted)">URL: ${escapeHtml(it.sourceUrl.length > 40 ? it.sourceUrl.slice(0, 37) + '…' : it.sourceUrl)}</span>` : ''));
+      card.innerHTML = `
+        <div class="thumb">
+          ${showUrl ? `<img src="${showUrl}" alt="" onerror="this.style.display='none'">` : ''}
+          ${badge}
+        </div>
+        <div class="meta">
+          <div class="name" title="${escapeHtml(it.name)}">${escapeHtml(it.name)}</div>
+          <div class="info">${info}</div>
+        </div>
+        <div class="actions">
+          ${it.status === 'done' ? `<button class="primary" data-action="download" data-id="${it.id}">Download</button>` : ''}
+          <button data-action="remove" data-id="${it.id}">Remove</button>
+        </div>
+      `;
+      grid.appendChild(card);
+    }
+    filesContainer.innerHTML = '';
+    filesContainer.appendChild(grid);
+
+    filesContainer.querySelectorAll('button[data-action]').forEach(b => {
+      b.addEventListener('click', () => {
+        const id = parseInt(b.dataset.id);
+        const action = b.dataset.action;
+        const it = items.find(x => x.id === id);
+        if (!it) return;
+        if (action === 'remove') {
+          if (it.srcUrl) URL.revokeObjectURL(it.srcUrl);
+          if (it.outUrl) URL.revokeObjectURL(it.outUrl);
+          items = items.filter(x => x.id !== id);
+          render();
+        } else if (action === 'download') {
+          downloadOne(it);
+        }
+      });
+    });
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function formatBytes(n) {
+    if (n < 1024) return n + ' B';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+    return (n / 1024 / 1024).toFixed(2) + ' MB';
+  }
+
+  // ---- Processing ----
+  // Tunable concurrency. Browsers cap ~6 connections per host, so 6-10 is the sweet spot.
+  const CONCURRENCY = 8;
+  // Throttle UI re-renders during heavy work — re-render at most every N completions.
+  const RENDER_BATCH = 4;
+  let processing = false;
+
+  async function processAll() {
+    if (processing) return;
+    processing = true;
+    processBtn.disabled = true;
+    const targetW = Math.max(1, parseInt(widthEl.value) || 1);
+    const targetH = Math.max(1, parseInt(heightEl.value) || 1);
+    const fmt = formatEl.value;
+    const quality = parseInt(qualityEl.value) / 100;
+    const allowUpscale = upscaleEl.checked;
+    const padHex = padColorEl.value;
+    const opts = { targetW, targetH, fitMode, fmt, quality, allowUpscale, padHex };
+
+    const queue = items.filter(it => it.status !== 'done').slice();
+    // Mark all as pending so the user sees them queued
+    queue.forEach(it => { it.status = 'queued'; it.errorMsg = null; });
+    render();
+
+    let completed = 0;
+    const renderThrottled = () => {
+      completed++;
+      if (completed % RENDER_BATCH === 0 || completed === queue.length) render();
+    };
+
+    // Bounded-concurrency worker pool
+    let cursor = 0;
+    const workers = Array.from({ length: Math.min(CONCURRENCY, queue.length) }, async () => {
+      while (true) {
+        const idx = cursor++;
+        if (idx >= queue.length) return;
+        const it = queue[idx];
+        it.status = 'processing';
+        try {
+          if (it.sourceUrl && !it.srcUrl) {
+            const blob = await fetchImage(it.sourceUrl);
+            it.srcUrl = URL.createObjectURL(blob);
+            it.srcSize = blob.size;
+            const dims = await getImageDims(it.srcUrl);
+            it.srcW = dims.w; it.srcH = dims.h;
+            it.file = { type: blob.type, name: it.name };
+          }
+          const result = await transformImage(it, opts);
+          if (it.outUrl) URL.revokeObjectURL(it.outUrl);
+          it.outBlob = result.blob;
+          it.outUrl = URL.createObjectURL(result.blob);
+          it.outW = result.w;
+          it.outH = result.h;
+          it.outSize = result.blob.size;
+          it.outExt = result.ext;
+          it.outFilename = renameForOutput(it.name, it.outExt);
+          it.status = 'done';
+          // Free the source object URL for URL-mode items — output thumb takes over.
+          // Keeps memory usage flat as we crunch through hundreds of images.
+          if (it.sourceUrl && it.srcUrl) {
+            URL.revokeObjectURL(it.srcUrl);
+            it.srcUrl = null;
+          }
+        } catch (e) {
+          console.error(e);
+          it.errorMsg = (e && e.message) ? truncate(e.message, 30) : 'Failed';
+          it.status = 'error';
+        }
+        renderThrottled();
+        // Yield to the event loop so the UI stays responsive
+        await new Promise(r => setTimeout(r, 0));
+      }
+    });
+    await Promise.all(workers);
+    render();
+    processBtn.disabled = false;
+    processing = false;
+  }
+
+  function truncate(s, n) { return s.length > n ? s.slice(0, n - 1) + '…' : s; }
+
+  async function fetchImage(url) {
+    const useProxy = useCorsProxyEl && useCorsProxyEl.checked;
+    const proxyPrefix = (corsProxyUrlEl && corsProxyUrlEl.value) || 'https://corsproxy.io/?url=';
+    const targets = useProxy
+      ? [proxyPrefix + encodeURIComponent(url), url]   // prefer proxy, fall back to direct
+      : [url, proxyPrefix + encodeURIComponent(url)];  // try direct, fall back to proxy
+    let lastErr = null;
+    for (const t of targets) {
+      try {
+        const resp = await fetch(t, { mode: 'cors' });
+        if (!resp.ok) { lastErr = new Error('HTTP ' + resp.status); continue; }
+        const blob = await resp.blob();
+        return blob;
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+    throw new Error(useProxy ? 'Fetch failed' : 'Fetch blocked (CORS)');
+  }
+
+  async function transformImage(it, opts) {
+    const img = await loadImg(it.srcUrl);
+    let { targetW, targetH } = opts;
+    const { fitMode, fmt, quality, allowUpscale, padHex } = opts;
+
+    // Cap upscaling if disabled
+    if (!allowUpscale) {
+      const sR = img.width / img.height;
+      const tR = targetW / targetH;
+      let maxW = img.width, maxH = img.height;
+      if (fitMode === 'cover' || fitMode === 'stretch') {
+        // Output can't exceed original source resolution effectively
+        if (targetW > img.width || targetH > img.height) {
+          const scale = Math.min(img.width / targetW, img.height / targetH);
+          targetW = Math.max(1, Math.round(targetW * scale));
+          targetH = Math.max(1, Math.round(targetH * scale));
+        }
+      } else if (fitMode === 'contain') {
+        if (targetW > img.width && targetH > img.height) {
+          const scale = Math.min(img.width / targetW, img.height / targetH);
+          targetW = Math.max(1, Math.round(targetW * scale));
+          targetH = Math.max(1, Math.round(targetH * scale));
+        }
+      }
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = targetW;
+    canvas.height = targetH;
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
+    // Background fill (used by contain mode; also helps JPEG transparency)
+    const needsBg = fitMode === 'contain' || (img.hasTransparency && (fmt === 'image/jpeg' || (fmt === 'original' && /jpe?g$/i.test(it.name))));
+    if (fitMode === 'contain') {
+      ctx.fillStyle = padHex;
+      ctx.fillRect(0, 0, targetW, targetH);
+    }
+
+    if (fitMode === 'stretch') {
+      ctx.drawImage(img, 0, 0, targetW, targetH);
+    } else if (fitMode === 'contain') {
+      const sR = img.width / img.height;
+      const tR = targetW / targetH;
+      let dw, dh;
+      if (sR > tR) { dw = targetW; dh = targetW / sR; }
+      else { dh = targetH; dw = targetH * sR; }
+      const dx = (targetW - dw) / 2;
+      const dy = (targetH - dh) / 2;
+      // High-quality downscale via step-down if shrinking a lot
+      const scaledImg = await downscaleIfNeeded(img, dw, dh);
+      ctx.drawImage(scaledImg, dx, dy, dw, dh);
+    } else { // cover (crop)
+      const sR = img.width / img.height;
+      const tR = targetW / targetH;
+      let sw, sh, sx, sy;
+      if (sR > tR) {
+        // source wider than target → crop sides
+        sh = img.height;
+        sw = img.height * tR;
+        sx = (img.width - sw) / 2;
+        sy = 0;
+      } else {
+        sw = img.width;
+        sh = img.width / tR;
+        sx = 0;
+        sy = (img.height - sh) / 2;
+      }
+      // Step-down for sharpness when shrinking significantly
+      const ratio = Math.max(targetW / sw, targetH / sh);
+      if (ratio < 0.5) {
+        const cropped = await cropToCanvas(img, sx, sy, sw, sh);
+        const scaled = await downscaleCanvas(cropped, targetW, targetH);
+        ctx.drawImage(scaled, 0, 0, targetW, targetH);
+      } else {
+        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, targetW, targetH);
+      }
+    }
+
+    // Determine output mime + ext
+    let outMime = fmt;
+    let ext;
+    if (fmt === 'original') {
+      const t = it.file.type || 'image/png';
+      outMime = (t === 'image/jpg') ? 'image/jpeg' : t;
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(outMime)) outMime = 'image/png';
+    }
+    ext = ({ 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[outMime]) || 'png';
+
+    const blob = await new Promise((res) => {
+      const usesQuality = outMime === 'image/jpeg' || outMime === 'image/webp';
+      canvas.toBlob((b) => res(b), outMime, usesQuality ? quality : undefined);
+    });
+
+    return { blob, w: targetW, h: targetH, ext };
+  }
+
+  async function loadImg(url) {
+    // Prefer createImageBitmap — decodes off the main thread on most browsers
+    // and produces an ImageBitmap that drawImage() consumes faster than an HTMLImageElement.
+    if (typeof createImageBitmap === 'function') {
+      try {
+        const resp = await fetch(url);
+        const blob = await resp.blob();
+        return await createImageBitmap(blob);
+      } catch (e) {
+        // Fall through to HTMLImageElement
+      }
+    }
+    return new Promise((res, rej) => {
+      const img = new Image();
+      img.onload = () => res(img);
+      img.onerror = rej;
+      img.src = url;
+    });
+  }
+
+  async function cropToCanvas(img, sx, sy, sw, sh) {
+    const c = document.createElement('canvas');
+    c.width = Math.round(sw);
+    c.height = Math.round(sh);
+    const cx = c.getContext('2d');
+    cx.imageSmoothingEnabled = true;
+    cx.imageSmoothingQuality = 'high';
+    cx.drawImage(img, sx, sy, sw, sh, 0, 0, c.width, c.height);
+    return c;
+  }
+
+  async function downscaleCanvas(src, dw, dh) {
+    // Iterative halving for high quality when shrinking a lot
+    let cur = src;
+    while (cur.width / 2 > dw && cur.height / 2 > dh) {
+      const half = document.createElement('canvas');
+      half.width = Math.max(1, Math.floor(cur.width / 2));
+      half.height = Math.max(1, Math.floor(cur.height / 2));
+      const hx = half.getContext('2d');
+      hx.imageSmoothingEnabled = true;
+      hx.imageSmoothingQuality = 'high';
+      hx.drawImage(cur, 0, 0, half.width, half.height);
+      cur = half;
+    }
+    const out = document.createElement('canvas');
+    out.width = Math.round(dw);
+    out.height = Math.round(dh);
+    const ox = out.getContext('2d');
+    ox.imageSmoothingEnabled = true;
+    ox.imageSmoothingQuality = 'high';
+    ox.drawImage(cur, 0, 0, out.width, out.height);
+    return out;
+  }
+
+  async function downscaleIfNeeded(img, dw, dh) {
+    const ratio = Math.max(dw / img.width, dh / img.height);
+    if (ratio >= 0.5) return img;
+    const tmp = document.createElement('canvas');
+    tmp.width = img.width;
+    tmp.height = img.height;
+    const tx = tmp.getContext('2d');
+    tx.drawImage(img, 0, 0);
+    return await downscaleCanvas(tmp, dw, dh);
+  }
+
+  // ---- Download ----
+  function downloadOne(it) {
+    const a = document.createElement('a');
+    a.href = it.outUrl;
+    a.download = renameForOutput(it.name, it.outExt);
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  function renameForOutput(name, ext) {
+    const base = name.replace(/\.[^.]+$/, '');
+    return `${base}-transformed.${ext}`;
+  }
+
+  async function downloadAllZip() {
+    const done = items.filter(it => it.status === 'done' && it.outBlob);
+    if (done.length === 0) return;
+    if (done.length === 1 && inputMode === 'files') { downloadOne(done[0]); return; }
+    const zip = new JSZip();
+    // Disambiguate any duplicate filenames
+    const used = new Map();
+    for (const it of done) {
+      let fn = renameForOutput(it.name, it.outExt);
+      if (used.has(fn)) {
+        const n = used.get(fn) + 1;
+        used.set(fn, n);
+        const dot = fn.lastIndexOf('.');
+        fn = fn.slice(0, dot) + '-' + n + fn.slice(dot);
+      } else {
+        used.set(fn, 1);
+      }
+      it.outFilename = fn;
+      zip.file(fn, it.outBlob);
+    }
+    if (inputMode === 'excel' && excelRows) {
+      const reportBuf = buildExcelReportBuffer();
+      zip.file('report.xlsx', reportBuf);
+    }
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `images-transformed.zip`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
+  function buildExcelReportBuffer() {
+    // Build rows mirroring input + appended columns
+    const extraCols = ['status', 'output_filename', 'width', 'height', 'output_bytes', 'source_width', 'source_height', 'error'];
+    const itemsByRow = new Map(items.map(it => [it.rowIndex, it]));
+    const outRows = excelRows.map((row, idx) => {
+      const it = itemsByRow.get(idx);
+      const copy = { ...row };
+      if (it) {
+        copy.status = it.status;
+        copy.output_filename = it.outFilename || '';
+        copy.width = it.outW || '';
+        copy.height = it.outH || '';
+        copy.output_bytes = it.outSize || '';
+        copy.source_width = it.srcW || '';
+        copy.source_height = it.srcH || '';
+        copy.error = it.errorMsg || '';
+      } else {
+        extraCols.forEach(c => copy[c] = '');
+      }
+      return copy;
+    });
+    const headers = [...excelHeaders.filter(h => !extraCols.includes(h)), ...extraCols];
+    const ws = XLSX.utils.json_to_sheet(outRows, { header: headers });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Results');
+    return XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+  }
+
+  function downloadExcelReport() {
+    if (!excelRows) return;
+    const buf = buildExcelReportBuffer();
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    const baseName = excelFileName.replace(/\.[^.]+$/, '');
+    a.download = `${baseName}-report.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
+  // Initial state
+  render();
+})();
+</script>
+</body>
+</html>
