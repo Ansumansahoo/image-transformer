@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>Swatch Generator Pro</title>
+<title>Image Tools Pro</title>
 <style>
 :root {
   --bg: #0f1115;
@@ -159,9 +159,76 @@ button.success{background:var(--good);color:#fff;border-color:var(--good)}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 ::-webkit-scrollbar-thumb:hover{background:var(--muted)}
+
+/* ── App header + tool switcher ── */
+.app-shell{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+.app-header{background:var(--panel);border-bottom:1px solid var(--border);padding:7px 14px;display:flex;align-items:center;gap:10px;flex-shrink:0;z-index:200}
+.app-logo{font-size:15px;font-weight:800;color:var(--text);white-space:nowrap;letter-spacing:.2px}
+.app-logo span{color:var(--accent)}
+.tool-switcher{display:flex;background:var(--panel-3);border:1px solid var(--border);border-radius:8px;padding:2px;gap:2px}
+.tool-tab{padding:5px 14px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;border:none;background:transparent;color:var(--muted);transition:.15s;white-space:nowrap}
+.tool-tab:hover{color:var(--accent)}
+.tool-tab.active{background:var(--accent);color:#fff}
+.header-spacer{flex:1}
+.view{display:none;flex:1;overflow:hidden;min-height:0}
+.view.active{display:flex}
+/* ── Image Transformer view ── */
+.it-wrap{display:flex;height:100%;overflow:hidden}
+.it-left{width:285px;min-width:220px;background:var(--panel);border-right:1px solid var(--border);overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px;flex-shrink:0}
+.it-right{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+.it-topbar{background:var(--panel);border-bottom:1px solid var(--border);padding:7px 12px;display:flex;gap:5px;flex-shrink:0;flex-wrap:wrap}
+.it-results{flex:1;overflow-y:auto;padding:12px}
+.it-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:8px}
+.it-card{background:var(--panel-2);border:1px solid var(--border);border-radius:10px;overflow:hidden;transition:.15s}
+.it-card:hover{border-color:var(--accent)}
+.it-card .thumb{aspect-ratio:1;overflow:hidden;background:var(--panel-3);display:flex;align-items:center;justify-content:center;position:relative}
+.it-card .thumb img{max-width:100%;max-height:100%;object-fit:contain}
+.it-card .card-meta{padding:6px 8px 3px}
+.it-card .card-name{font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.it-card .card-info{font-size:10px;color:var(--muted);margin-top:1px}
+.it-card .card-actions{padding:4px 5px;border-top:1px solid var(--border);display:flex;gap:3px}
+.it-card .card-actions button{flex:1;font-size:10px;padding:3px 4px;cursor:pointer;border-radius:5px}
+.it-empty{display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);text-align:center;padding:40px;font-size:13px}
+.it-sect{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:4px}
+.it-rg{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.it-rb{padding:5px 3px;border-radius:6px;border:1px solid var(--border);background:var(--panel-2);color:var(--muted);cursor:pointer;font-size:10px;font-weight:700;text-align:left;transition:.15s;line-height:1.3}
+.it-rb:hover,.it-rb.active{border-color:var(--accent);color:var(--accent)}
+.it-rb.active{background:var(--accent);color:#fff}
+.it-fr{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px}
+.it-fb{padding:5px 2px;border-radius:6px;border:1px solid var(--border);background:var(--panel-2);color:var(--muted);cursor:pointer;font-size:11px;font-weight:600;text-align:center;transition:.15s}
+.it-fb:hover,.it-fb.active{border-color:var(--accent);color:var(--accent)}
+.it-fb.active{background:var(--accent);color:#fff}
+.it-drop{border:2px dashed var(--border);border-radius:9px;padding:14px 8px;text-align:center;cursor:pointer;transition:.2s;background:var(--panel-2)}
+.it-drop:hover,.it-drop.dragover{border-color:var(--accent);background:rgba(106,166,255,.06)}
+.it-mr{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:5px}
+.it-mb{padding:4px 2px;border-radius:6px;border:1px solid var(--border);background:var(--panel-2);color:var(--muted);cursor:pointer;font-size:11px;font-weight:600;text-align:center;transition:.15s}
+.it-mb:hover,.it-mb.active{border-color:var(--accent);color:var(--accent)}
+.it-mb.active{background:var(--accent);color:#fff}
+.cr-row{display:flex;align-items:center;gap:4px}
+.cr-row input{width:42px;text-align:center;background:var(--panel-3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:4px;font-size:12px;font-family:inherit;outline:none}
+.cr-row .colon{font-weight:700;color:var(--muted)}
+.it-inp{width:100%;background:var(--panel-3);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:5px 8px;font-size:12px;font-family:inherit;outline:none}
+.it-label{font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:2px}
+.it-btn{border-radius:7px;border:1px solid var(--border);padding:5px 11px;font-size:12px;font-weight:600;cursor:pointer;background:var(--panel-2);color:var(--text);transition:.15s;font-family:inherit}
+.it-btn.primary{background:var(--accent);color:#fff;border-color:var(--accent-2)}
+.it-btn.success{background:var(--good);color:#fff;border-color:var(--good)}
+.it-btn:disabled{opacity:.4;cursor:default}
+
 </style>
 </head>
 <body>
+<div class="app-shell">
+
+<!-- APP HEADER WITH TOOL SWITCHER -->
+<div class="app-header">
+  <div class="app-logo">Image<span>Tools</span> Pro</div>
+  <div class="tool-switcher">
+    <button class="tool-tab active" id="tabSwatch" onclick="switchTool('swatch')">🎨 Swatch Generator</button>
+    <button class="tool-tab" id="tabTransform" onclick="switchTool('transform')">⚡ Image Transformer</button>
+  </div>
+  <div class="header-spacer"></div>
+</div>
+<div class="view active" id="viewSwatch" style="flex-direction:column">
 <div class="wrap">
 <!-- SIDEBAR -->
 <aside class="sidebar">
@@ -466,6 +533,117 @@ button.success{background:var(--good);color:#fff;border-color:var(--good)}
 
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+</div>
+
+<div class="view" id="viewTransform">
+<div class="it-wrap">
+<div class="it-left">
+  <div>
+    <div class="it-sect">📁 Upload</div>
+    <div class="it-mr">
+      <button class="it-mb active" id="itModeFiles" onclick="itSetMode('files')">🖼 Images</button>
+      <button class="it-mb" id="itModeExcel" onclick="itSetMode('excel')">📊 Excel/CSV</button>
+    </div>
+    <div class="it-drop" id="itDrop">
+      <div style="font-size:22px;opacity:.5;margin-bottom:4px">🖼</div>
+      <div style="font-size:12px;font-weight:700;margin-bottom:2px" id="itDropTitle">Drop images here</div>
+      <div style="font-size:10px;color:var(--muted)" id="itDropSub">or click to browse — supports batch</div>
+      <input type="file" id="itFileInput" multiple accept="image/*" style="display:none">
+    </div>
+    <div style="font-size:10px;color:var(--muted);margin-top:3px" id="itModeHint">Drop one or many image files. Runs locally.</div>
+    <div id="itCorsField" style="display:none;margin-top:5px">
+      <label class="it-label"><input type="checkbox" id="itUseCorsProxy" style="accent-color:var(--accent);margin-right:4px"> CORS proxy</label>
+      <input type="text" id="itCorsProxyUrl" value="https://corsproxy.io/?url=" class="it-inp" style="margin-top:2px;font-size:10px">
+    </div>
+    <div id="itSheetField" style="display:none;margin-top:4px"><label class="it-label">Sheet</label><select id="itSheetSelect" class="it-inp" style="cursor:pointer"></select></div>
+    <div id="itUrlColField" style="display:none;margin-top:4px"><label class="it-label">URL Column</label><select id="itUrlColSelect" class="it-inp" style="cursor:pointer"></select></div>
+  </div>
+  <div>
+    <div class="it-sect">↔ Dimensions</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px">
+      <div><label class="it-label">Width (px)</label><input type="number" id="itWidth" value="1200" min="1" max="8000" class="it-inp"></div>
+      <div><label class="it-label">Height (px)</label><input type="number" id="itHeight" value="1200" min="1" max="8000" class="it-inp"></div>
+    </div>
+  </div>
+  <div>
+    <div class="it-sect">📐 Aspect Ratio Presets</div>
+    <div class="it-rg">
+      <button class="it-rb" data-itrw="1" data-itrh="1">1:1 <span style="font-size:9px;opacity:.7">Square</span></button>
+      <button class="it-rb" data-itrw="4" data-itrh="3">4:3 <span style="font-size:9px;opacity:.7">Classic</span></button>
+      <button class="it-rb" data-itrw="3" data-itrh="2">3:2 <span style="font-size:9px;opacity:.7">Photo</span></button>
+      <button class="it-rb" data-itrw="1.7" data-itrh="1">1.7:1 <span style="font-size:9px;opacity:.7">Cinema</span></button>
+      <button class="it-rb" data-itrw="16" data-itrh="9">16:9 <span style="font-size:9px;opacity:.7">Wide</span></button>
+      <button class="it-rb" data-itrw="9" data-itrh="16">9:16 <span style="font-size:9px;opacity:.7">Story</span></button>
+      <button class="it-rb" data-itrw="2" data-itrh="3">2:3 <span style="font-size:9px;opacity:.7">Portrait</span></button>
+      <button class="it-rb" data-itrw="5" data-itrh="4">5:4 <span style="font-size:9px;opacity:.7">Print</span></button>
+    </div>
+    <div style="margin-top:6px">
+      <div class="it-sect" style="margin-bottom:3px">Custom Ratio</div>
+      <div class="cr-row">
+        <input type="number" id="itCustomW" value="1.7" min="0.1" step="0.1">
+        <span class="colon">:</span>
+        <input type="number" id="itCustomH" value="1" min="0.1" step="0.1">
+        <button id="itApplyCustom" class="it-btn primary" style="flex:1;padding:4px 8px;font-size:11px">Apply</button>
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:2px">Longer side keeps current dimension.</div>
+    </div>
+  </div>
+  <div>
+    <div class="it-sect">🔲 Fit Mode</div>
+    <div class="it-fr">
+      <button class="it-fb active" id="itFitCrop" onclick="itSetFit('crop')">Crop (fill)</button>
+      <button class="it-fb" id="itFitPad" onclick="itSetFit('pad')">Pad</button>
+      <button class="it-fb" id="itFitStretch" onclick="itSetFit('stretch')">Stretch</button>
+    </div>
+    <div style="margin-top:5px"><label class="it-label">Pad Color</label>
+      <div style="display:flex;align-items:center;gap:5px">
+        <input type="color" id="itPadColor" value="#ffffff" style="width:32px;height:25px;border:none;border-radius:5px;cursor:pointer;background:none;padding:0">
+        <input type="text" id="itPadColorText" value="#ffffff" maxlength="7" class="it-inp" style="flex:1">
+      </div>
+    </div>
+  </div>
+  <div>
+    <div class="it-sect">💾 Output</div>
+    <div style="display:flex;flex-direction:column;gap:5px">
+      <div><label class="it-label">Format</label>
+        <select id="itFormat" class="it-inp" style="cursor:pointer">
+          <option value="original">Keep original</option>
+          <option value="jpeg">JPEG</option>
+          <option value="png">PNG</option>
+          <option value="webp">WebP</option>
+        </select>
+      </div>
+      <div><label class="it-label">Quality: <span id="itQualityVal">92</span></label>
+        <input type="range" id="itQuality" min="1" max="100" value="92" style="width:100%;accent-color:var(--accent);cursor:pointer">
+      </div>
+      <label class="it-label" style="cursor:pointer;display:flex;align-items:center;gap:5px">
+        <input type="checkbox" id="itUpscale" style="accent-color:var(--accent);width:13px;height:13px;cursor:pointer">
+        Allow upscaling beyond original
+      </label>
+    </div>
+  </div>
+</div>
+<div class="it-right">
+  <div class="it-topbar">
+    <button id="itProcessBtn" class="it-btn primary" disabled>⚡ Transform all</button>
+    <button id="itPauseBtn" class="it-btn" disabled>⏸ Pause</button>
+    <button id="itResumeBtn" class="it-btn" disabled>▶ Resume</button>
+    <button id="itCancelBtn" class="it-btn" disabled>✕ Cancel</button>
+    <div style="margin-left:auto;display:flex;gap:5px">
+      <button id="itDownloadAll" class="it-btn success" disabled>⬇ Download all (.zip)</button>
+      <button id="itDownloadExcel" class="it-btn" disabled style="display:none">📊 Excel Report</button>
+      <button id="itClearAll" class="it-btn" disabled>🗑 Clear</button>
+    </div>
+  </div>
+  <div class="it-results" id="itResultsWrap">
+    <div class="it-empty" id="itEmpty">No images yet — drop some on the left to get started.</div>
+    <div class="it-grid" id="itGrid" style="display:none"></div>
+  </div>
+</div>
+</div>
+</div>
+</div><!-- /app-shell -->
 <script>
 
 // ===== SWATCH GENERATOR PRO — ENGINE =====
@@ -1538,6 +1716,211 @@ render();
 window.__swatchPro={ state, getSettings, applyPresetValues, BUILTIN_PRESETS };
 
 })(); // end IIFE
+
+
+
+// ──── TOOL SWITCHER ────
+function switchTool(tool){
+  document.getElementById('tabSwatch').classList.toggle('active',tool==='swatch');
+  document.getElementById('tabTransform').classList.toggle('active',tool==='transform');
+  document.getElementById('viewSwatch').classList.toggle('active',tool==='swatch');
+  document.getElementById('viewTransform').classList.toggle('active',tool==='transform');
+  try{localStorage.setItem('imagetools:activeTool',tool);}catch{}
+}
+(function(){try{const t=localStorage.getItem('imagetools:activeTool');if(t==='transform')switchTool('transform');}catch{}})();
+
+// ──── IMAGE TRANSFORMER ENGINE ────
+const itSt={items:[],nextId:1,mode:'files',fitMode:'crop',excelWorkbook:null,excelRows:null,excelHeaders:null,excelUrlCol:null,excelFileName:'urls.xlsx',processing:false,paused:false,cancelled:false};
+const itD={drop:document.getElementById('itDrop'),fileInput:document.getElementById('itFileInput'),dropTitle:document.getElementById('itDropTitle'),dropSub:document.getElementById('itDropSub'),modeHint:document.getElementById('itModeHint'),corsField:document.getElementById('itCorsField'),useCorsProxy:document.getElementById('itUseCorsProxy'),corsProxyUrl:document.getElementById('itCorsProxyUrl'),sheetField:document.getElementById('itSheetField'),sheetSelect:document.getElementById('itSheetSelect'),urlColField:document.getElementById('itUrlColField'),urlColSelect:document.getElementById('itUrlColSelect'),width:document.getElementById('itWidth'),height:document.getElementById('itHeight'),customW:document.getElementById('itCustomW'),customH:document.getElementById('itCustomH'),applyCustom:document.getElementById('itApplyCustom'),quality:document.getElementById('itQuality'),qualityVal:document.getElementById('itQualityVal'),format:document.getElementById('itFormat'),padColor:document.getElementById('itPadColor'),padColorText:document.getElementById('itPadColorText'),upscale:document.getElementById('itUpscale'),processBtn:document.getElementById('itProcessBtn'),pauseBtn:document.getElementById('itPauseBtn'),resumeBtn:document.getElementById('itResumeBtn'),cancelBtn:document.getElementById('itCancelBtn'),downloadAll:document.getElementById('itDownloadAll'),downloadExcel:document.getElementById('itDownloadExcel'),clearAll:document.getElementById('itClearAll'),empty:document.getElementById('itEmpty'),grid:document.getElementById('itGrid')};
+document.querySelectorAll('.it-rb').forEach(btn=>{
+  btn.addEventListener('click',()=>{const rw=parseFloat(btn.dataset.itrw),rh=parseFloat(btn.dataset.itrh);itApplyRatio(rw,rh);document.querySelectorAll('.it-rb').forEach(b=>b.classList.remove('active'));btn.classList.add('active');});
+});
+itD.applyCustom.addEventListener('click',()=>{const w=parseFloat(itD.customW.value),h=parseFloat(itD.customH.value);if(w>0&&h>0){itApplyRatio(w,h);document.querySelectorAll('.it-rb').forEach(b=>b.classList.remove('active'));}});
+function itApplyRatio(rw,rh){const cW=parseInt(itD.width.value)||1200,cH=parseInt(itD.height.value)||1200;const longer=Math.max(cW,cH);if(rw>=rh){itD.width.value=longer;itD.height.value=Math.round(longer*rh/rw);}else{itD.height.value=longer;itD.width.value=Math.round(longer*rw/rh);}}
+function itSetMode(mode){
+  itSt.mode=mode;
+  document.getElementById('itModeFiles').classList.toggle('active',mode==='files');
+  document.getElementById('itModeExcel').classList.toggle('active',mode==='excel');
+  itD.corsField.style.display=mode==='excel'?'':'none';
+  itD.sheetField.style.display='none';itD.urlColField.style.display='none';
+  itD.downloadExcel.style.display=mode==='excel'?'':'none';
+  if(mode==='files'){itD.fileInput.setAttribute('accept','image/*');itD.fileInput.setAttribute('multiple','');itD.fileInput.removeAttribute('webkitdirectory');itD.dropTitle.textContent='Drop images here';itD.dropSub.textContent='or click to browse — supports batch';itD.modeHint.textContent='Drop one or many image files. Runs locally.';}
+  else{itD.fileInput.setAttribute('accept','.xlsx,.xls,.csv');itD.fileInput.removeAttribute('multiple');itD.fileInput.removeAttribute('webkitdirectory');itD.dropTitle.textContent='Drop Excel/CSV here';itD.dropSub.textContent='any sheet with an image-URL column';itD.modeHint.textContent='Each row → one source URL. Output includes Excel report.';}
+}
+function itSetFit(mode){
+  itSt.fitMode=mode;
+  ['Crop','Pad','Stretch'].forEach(m=>{const el=document.getElementById('itFit'+m);if(el)el.classList.toggle('active',m.toLowerCase()===mode||m==='Crop'&&mode==='crop');});
+  document.getElementById('itFitCrop').classList.toggle('active',mode==='crop');
+  document.getElementById('itFitPad').classList.toggle('active',mode==='pad');
+  document.getElementById('itFitStretch').classList.toggle('active',mode==='stretch');
+}
+itD.quality.addEventListener('input',()=>itD.qualityVal.textContent=itD.quality.value);
+itD.padColor.addEventListener('input',()=>itD.padColorText.value=itD.padColor.value);
+itD.padColorText.addEventListener('change',()=>{if(/^#[0-9a-fA-F]{6}$/.test(itD.padColorText.value))itD.padColor.value=itD.padColorText.value;});
+itD.drop.addEventListener('click',()=>itD.fileInput.click());
+itD.drop.addEventListener('dragover',e=>{e.preventDefault();itD.drop.classList.add('dragover');});
+itD.drop.addEventListener('dragleave',()=>itD.drop.classList.remove('dragover'));
+itD.drop.addEventListener('drop',async e=>{e.preventDefault();itD.drop.classList.remove('dragover');await itIntake(e.dataTransfer.files);});
+itD.fileInput.addEventListener('change',e=>itIntake(e.target.files));
+function _gd(url){return new Promise((res,rej)=>{const i=new Image();i.onload=()=>res({w:i.naturalWidth,h:i.naturalHeight});i.onerror=rej;i.src=url;});}
+function _u2f(url,idx){try{const u=new URL(url);const p=u.pathname.split('/').filter(Boolean);const l=p[p.length-1]||('image-'+(idx+1));return decodeURIComponent(l).replace(/[?#].*$/,'')||('image-'+(idx+1));}catch{return 'image-'+(idx+1);}}
+async function itIntake(fl){if(!fl||!fl.length)return;if(itSt.mode==='excel')await itHandleExcel(fl[0]);else await itHandleImgs(fl);itRenderIT();}
+async function itHandleImgs(fl){for(const f of fl){if(!f.type.startsWith('image/')&&!/\.(jpe?g|png|webp|gif|bmp|avif|tiff?)$/i.test(f.name))continue;const url=URL.createObjectURL(f);let d={w:0,h:0};try{d=await _gd(url);}catch{}itSt.items.push({id:itSt.nextId++,file:f,srcUrl:url,name:f.name,srcW:d.w,srcH:d.h,srcSize:f.size,status:'ready',output:null});}}
+async function itHandleExcel(file){
+  itSt.excelFileName=file.name;const buf=await file.arrayBuffer();
+  itSt.excelWorkbook=XLSX.read(buf,{type:'array'});
+  if(!itSt.excelWorkbook.SheetNames.length){alert('No sheets.');return;}
+  itD.sheetSelect.innerHTML='';itSt.excelWorkbook.SheetNames.forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;itD.sheetSelect.appendChild(o);});
+  itD.sheetField.style.display=itSt.excelWorkbook.SheetNames.length>1?'':'none';
+  let best=itSt.excelWorkbook.SheetNames[0],bestN=-1;
+  for(const nm of itSt.excelWorkbook.SheetNames){const rows=XLSX.utils.sheet_to_json(itSt.excelWorkbook.Sheets[nm],{defval:'',raw:false});let n=0;for(const r of rows)for(const v of Object.values(r)){if(typeof v==='string'&&/^https?:\/\//i.test(v.trim())){n++;break;}}if(n>bestN){bestN=n;best=nm;}}
+  itD.sheetSelect.value=best;itLoadSht(best);
+}
+function itLoadSht(sn){
+  const ws=itSt.excelWorkbook.Sheets[sn];const rows=XLSX.utils.sheet_to_json(ws,{defval:'',raw:false});
+  if(!rows.length){alert('No rows.');return;}itSt.excelHeaders=Object.keys(rows[0]);itSt.excelRows=rows;
+  const HINT=/image|url|link|src|photo|thumb|picture|main|primary/i;
+  const cands=itSt.excelHeaders.filter(h=>rows.some(r=>typeof r[h]==='string'&&/^https?:\/\//i.test(r[h].trim())));
+  itD.urlColSelect.innerHTML='';
+  itSt.excelHeaders.forEach(h=>{const o=document.createElement('option');o.value=h;const n=rows.filter(r=>typeof r[h]==='string'&&/^https?:\/\//i.test(r[h].trim())).length;o.textContent=h+(n?' ('+n+' URLs)':'');if(!cands.includes(h))o.disabled=true;itD.urlColSelect.appendChild(o);});
+  itD.urlColField.style.display='';
+  let picked=itSt.excelHeaders.find(h=>cands.includes(h)&&HINT.test(h))||cands[0];
+  if(!picked){alert('No URL column.');return;}
+  itD.urlColSelect.value=picked;itSt.excelUrlCol=picked;itRebuildRows();
+}
+itD.sheetSelect.addEventListener('change',()=>itLoadSht(itD.sheetSelect.value));
+itD.urlColSelect.addEventListener('change',()=>{itSt.excelUrlCol=itD.urlColSelect.value;itRebuildRows();});
+function itRebuildRows(){
+  itSt.items.forEach(it=>{if(it.srcUrl)URL.revokeObjectURL(it.srcUrl);});itSt.items=[];
+  itSt.excelRows.forEach((row,idx)=>{const url=String(row[itSt.excelUrlCol]||'').trim();if(!/^https?:\/\//i.test(url))return;itSt.items.push({id:itSt.nextId++,sourceUrl:url,name:_u2f(url,idx),srcW:null,srcH:null,srcSize:null,srcUrl:null,status:'pending',rowIndex:idx,output:null});});
+  itRenderIT();
+}
+const _esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const _tr=(s,n)=>s&&s.length>n?s.slice(0,n-1)+'…':s;
+const _fb=n=>{if(!n)return'';if(n<1024)return n+' B';if(n<1048576)return(n/1024).toFixed(1)+' KB';return(n/1048576).toFixed(2)+' MB';};
+function itRenderIT(){
+  const items=itSt.items;
+  const _dis=id=>{const el=document.getElementById(id);if(el)el.disabled=true;};
+  const _ena=id=>{const el=document.getElementById(id);if(el)el.disabled=false;};
+  items.length?_ena('itProcessBtn'):_dis('itProcessBtn');
+  items.length?_ena('itClearAll'):_dis('itClearAll');
+  items.some(i=>i.status==='done')?_ena('itDownloadAll'):_dis('itDownloadAll');
+  if(itD.downloadExcel)itD.downloadExcel.disabled=!(itSt.mode==='excel'&&itSt.excelRows);
+  if(itD.pauseBtn)itD.pauseBtn.disabled=!itSt.processing||itSt.paused;
+  if(itD.resumeBtn)itD.resumeBtn.disabled=!itSt.processing||!itSt.paused;
+  if(itD.cancelBtn)itD.cancelBtn.disabled=!itSt.processing;
+  if(!items.length){itD.empty.style.display='flex';itD.grid.style.display='none';return;}
+  itD.empty.style.display='none';itD.grid.style.display='grid';
+  itD.grid.innerHTML=items.map(it=>{
+    const badge=it.status==='done'?'<span class="badge done">✓</span>':it.status==='error'?'<span class="badge error">Err</span>':it.status==='processing'?'<span class="badge"><span class="spinner"></span></span>':it.status==='queued'?'<span class="badge">Q</span>':'';
+    const tSrc=it.status==='done'&&it.outputUrl?it.outputUrl:(it.srcUrl||'');
+    const tCls=it.status==='done'?'thumb checker-bg':'thumb';
+    const tImg=tSrc?'<img src="'+tSrc+'" alt="">':(it.sourceUrl?'<div style="color:var(--muted);font-size:9px;padding:5px;text-align:center">'+_esc(_tr(it.sourceUrl,35))+'</div>':'');
+    const info=it.status==='done'&&it.outW?it.outW+'×'+it.outH+(it.outputSize?' · '+_fb(it.outputSize):''):(it.srcW?it.srcW+'×'+it.srcH+' · '+_fb(it.srcSize):(it.sourceUrl?'URL':''));
+    return '<div class="it-card"><div class="'+tCls+'">'+tImg+badge+'</div><div class="card-meta"><div class="card-name" title="'+_esc(it.name)+'">'+_esc(it.name)+'</div><div class="card-info">'+info+'</div></div><div class="card-actions">'+(it.status==='done'?'<button onclick="itDlOne('+it.id+')" class="it-btn primary">⬇ Save</button>':'')+'<button onclick="itRemI('+it.id+')" class="it-btn">Remove</button></div></div>';
+  }).join('');
+}
+function itRemI(id){const it=itSt.items.find(x=>x.id===id);if(!it)return;if(it.srcUrl)URL.revokeObjectURL(it.srcUrl);if(it.outputUrl)URL.revokeObjectURL(it.outputUrl);itSt.items=itSt.items.filter(x=>x.id!==id);itRenderIT();}
+if(itD.processBtn)itD.processBtn.addEventListener('click',itProcessAll);
+if(itD.pauseBtn)itD.pauseBtn.addEventListener('click',()=>{itSt.paused=true;itRenderIT();});
+if(itD.resumeBtn)itD.resumeBtn.addEventListener('click',()=>{itSt.paused=false;itRenderIT();});
+if(itD.cancelBtn)itD.cancelBtn.addEventListener('click',()=>{itSt.cancelled=true;itRenderIT();});
+if(itD.clearAll)itD.clearAll.addEventListener('click',()=>{itSt.items.forEach(it=>{if(it.srcUrl)URL.revokeObjectURL(it.srcUrl);if(it.outputUrl)URL.revokeObjectURL(it.outputUrl);});itSt.items=[];itSt.excelRows=itSt.excelWorkbook=itSt.excelHeaders=itSt.excelUrlCol=null;if(itD.sheetField)itD.sheetField.style.display='none';if(itD.urlColField)itD.urlColField.style.display='none';itRenderIT();});
+if(itD.downloadAll)itD.downloadAll.addEventListener('click',itDlAll);
+if(itD.downloadExcel)itD.downloadExcel.addEventListener('click',itDlExcel);
+async function _itFetch(url){
+  const useP=itD.useCorsProxy&&itD.useCorsProxy.checked;const prefix=(itD.corsProxyUrl&&itD.corsProxyUrl.value)||'https://corsproxy.io/?url=';
+  const targets=useP?[prefix+encodeURIComponent(url),url]:[url,prefix+encodeURIComponent(url)];
+  let lastErr=null;
+  for(const t of targets){try{const r=await fetch(t,{mode:'cors'});if(!r.ok){lastErr=new Error('HTTP '+r.status);continue;}return await r.blob();}catch(e){lastErr=e;}}
+  throw new Error('Fetch failed: '+(lastErr?.message||''));
+}
+async function itProcessAll(){
+  if(itSt.processing||!itSt.items.length)return;
+  itSt.processing=true;itSt.paused=false;itSt.cancelled=false;
+  const queue=itSt.items.filter(it=>it.status!=='done').slice();
+  queue.forEach(it=>{it.status='queued';it.errorMsg=null;});itRenderIT();
+  let cursor=0,done=0;
+  const workers=Array.from({length:Math.min(8,queue.length)},async()=>{
+    while(true){
+      while(itSt.paused&&!itSt.cancelled)await new Promise(r=>setTimeout(r,100));
+      if(itSt.cancelled)return;
+      const idx=cursor++;if(idx>=queue.length)return;
+      const it=queue[idx];it.status='processing';
+      try{
+        if(it.sourceUrl&&!it.srcUrl){const blob=await _itFetch(it.sourceUrl);it.srcUrl=URL.createObjectURL(blob);it.srcSize=blob.size;const d=await _gd(it.srcUrl);it.srcW=d.w;it.srcH=d.h;}
+        if(it.outputUrl)URL.revokeObjectURL(it.outputUrl);
+        const res=await itTransform(it);
+        it.outputBlob=res.blob;it.outputUrl=URL.createObjectURL(res.blob);it.outW=res.w;it.outH=res.h;it.outputSize=res.blob.size;
+        it.outputName=it.name.replace(/\.[^.]+$/,'')+'.'+res.ext;it.status='done';
+        if(it.sourceUrl&&it.srcUrl){URL.revokeObjectURL(it.srcUrl);it.srcUrl=null;}
+      }catch(e){it.errorMsg=e?.message?e.message.substring(0,35):'Failed';it.status='error';}
+      done++;if(done%4===0||done===queue.length)itRenderIT();
+      await new Promise(r=>setTimeout(r,0));
+    }
+  });
+  await Promise.all(workers);itSt.processing=false;itRenderIT();
+}
+async function _itLI(url){
+  if(typeof createImageBitmap==='function'){try{const r=await fetch(url);const b=await r.blob();return await createImageBitmap(b);}catch{}}
+  return new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=url;});
+}
+async function _itDS(src,tw,th){
+  let cur=src;
+  while(Math.max(cur.width||tw,cur.height||th)/2>Math.max(tw,th)){
+    const n=document.createElement('canvas');n.width=Math.max(1,Math.floor((cur.width||tw)/2));n.height=Math.max(1,Math.floor((cur.height||th)/2));
+    const nx=n.getContext('2d');nx.imageSmoothingEnabled=true;nx.imageSmoothingQuality='high';nx.drawImage(cur,0,0,n.width,n.height);cur=n;
+  }
+  return cur;
+}
+async function itTransform(it){
+  const img=await _itLI(it.srcUrl);
+  const sW=img.width||it.srcW||800,sH=img.height||it.srcH||800;
+  const tW=parseInt(itD.width.value)||1200,tH=parseInt(itD.height.value)||1200;
+  const allowUp=itD.upscale.checked;const fW=allowUp?tW:Math.min(tW,sW),fH=allowUp?tH:Math.min(tH,sH);
+  const padCol=itD.padColor.value||'#ffffff';const outFmt=itD.format.value;const quality=parseInt(itD.quality.value)/100;const fit=itSt.fitMode;
+  const c=document.createElement('canvas');c.width=fW;c.height=fH;
+  const ctx=c.getContext('2d');ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
+  if(fit==='stretch'){const sc=await _itDS(img,fW,fH);ctx.drawImage(sc,0,0,fW,fH);}
+  else if(fit==='pad'){
+    ctx.fillStyle=padCol;ctx.fillRect(0,0,fW,fH);
+    const sR=sW/sH,tR=fW/fH;let dw,dh;
+    if(sR>tR){dw=fW;dh=Math.round(fW/sR);}else{dh=fH;dw=Math.round(fH*sR);}
+    const sc=await _itDS(img,dw,dh);ctx.drawImage(sc,Math.round((fW-dw)/2),Math.round((fH-dh)/2),dw,dh);
+  }else{
+    const tR=fW/fH,sR=sW/sH;let cx2,cy2,cw,ch;
+    if(sR>tR){ch=sH;cw=sH*tR;cy2=0;cx2=(sW-cw)/2;}else{cw=sW;ch=sW/tR;cx2=0;cy2=(sH-ch)/2;}
+    const crop=document.createElement('canvas');crop.width=Math.round(cw);crop.height=Math.round(ch);
+    const cx3=crop.getContext('2d');cx3.imageSmoothingEnabled=true;cx3.imageSmoothingQuality='high';
+    cx3.drawImage(img,cx2,cy2,cw,ch,0,0,crop.width,crop.height);
+    const sc=await _itDS(crop,fW,fH);ctx.drawImage(sc,0,0,fW,fH);
+  }
+  let mime,ext;
+  if(outFmt==='jpeg'){mime='image/jpeg';ext='jpg';}else if(outFmt==='png'){mime='image/png';ext='png';}else if(outFmt==='webp'){mime='image/webp';ext='webp';}
+  else{const oe=(it.name.match(/\.([^.]+)$/)||['','png'])[1].toLowerCase();if(oe==='jpg'||oe==='jpeg'){mime='image/jpeg';ext='jpg';}else if(oe==='webp'){mime='image/webp';ext='webp';}else{mime='image/png';ext='png';}}
+  if(mime==='image/jpeg'){const flat=document.createElement('canvas');flat.width=fW;flat.height=fH;const fx=flat.getContext('2d');fx.fillStyle=padCol;fx.fillRect(0,0,fW,fH);fx.drawImage(c,0,0);const blob=await new Promise(r=>flat.toBlob(b=>r(b),mime,quality));return{blob,w:fW,h:fH,ext};}
+  const useQ=mime!=='image/png';const blob=await new Promise(r=>c.toBlob(b=>r(b),mime,useQ?quality:undefined));return{blob,w:fW,h:fH,ext};
+}
+function itDlOne(id){const it=itSt.items.find(x=>x.id===id);if(!it||!it.outputBlob)return;const a=document.createElement('a');a.href=URL.createObjectURL(it.outputBlob);a.download=it.outputName||it.name;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(a.href),1500);}
+function _itDL(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(a.href),1500);}
+async function itDlAll(){
+  const done=itSt.items.filter(it=>it.status==='done'&&it.outputBlob);if(!done.length)return;
+  const zip=new JSZip();const used=new Set();
+  done.forEach(it=>{let n=it.outputName||it.name;let c=1;while(used.has(n)){c++;const d=n.lastIndexOf('.');n=n.slice(0,d)+'-'+c+n.slice(d);}used.add(n);zip.file(n,it.outputBlob);});
+  if(itSt.mode==='excel'&&itSt.excelRows)zip.file('report.xlsx',itBuildRep());
+  const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}});
+  _itDL(blob,'transformed-images.zip');
+}
+function itBuildRep(){
+  const extras=['status','error','output_width','output_height','output_file'];
+  const byRow=new Map(itSt.items.map(it=>[it.rowIndex,it]));
+  const outRows=itSt.excelRows.map((row,idx)=>{const it=byRow.get(idx);const copy={...row};if(it){copy.status=it.status;copy.error=it.errorMsg||'';copy.output_width=it.outW||'';copy.output_height=it.outH||'';copy.output_file=it.outputName||'';}else extras.forEach(c2=>copy[c2]='');return copy;});
+  const headers=[...itSt.excelHeaders.filter(h=>!extras.includes(h)),...extras];
+  const ws=XLSX.utils.json_to_sheet(outRows,{header:headers});const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Transformed');
+  return XLSX.write(wb,{type:'array',bookType:'xlsx'});
+}
+function itDlExcel(){if(!itSt.excelRows)return;const buf=itBuildRep();const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});_itDL(blob,itSt.excelFileName.replace(/\.[^.]+$/,'')+'-transformed-report.xlsx');}
+itRenderIT();
 
 </script>
 </body>
