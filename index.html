@@ -645,7 +645,7 @@ function extractDominantColor(img,box,thresh) {
   if(n===0) return {r:tr|8,g:tg|8,b:tb|8};
   return {r:Math.round(sr/n),g:Math.round(sg/n),b:Math.round(sb/n)};
 }
-function renderSwatch(img,box,baseSize,opts,solidColor) {
+async function renderSwatch(img,box,baseSize,opts,solidColor) {
   let outW,outH;
   if(opts.ratioW>=opts.ratioH){ outW=baseSize; outH=Math.max(1,Math.round(baseSize*opts.ratioH/opts.ratioW)); }
   else{ outH=baseSize; outW=Math.max(1,Math.round(baseSize*opts.ratioW/opts.ratioH)); }
@@ -778,7 +778,7 @@ function stepDownToFit(img,box,target) {
   }
   return cur;
 }
-function downscaleIfNeeded(img,dw,dh) {
+async function downscaleIfNeeded(img,dw,dh) {
   const ratio=Math.max(dw/(img.width||dw),dh/(img.height||dh));
   if(ratio>=0.5) return img;
   const tmp=document.createElement('canvas'); tmp.width=img.width; tmp.height=img.height;
