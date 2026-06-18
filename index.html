@@ -459,9 +459,6 @@ const BUILTIN_PRESETS = {
   'Minimal hexagon':   { shape:'hexagon', sizes:'120,240',            ratioW:1,   ratioH:1,  cropEngine:'smart', bgThresh:240, cropPad:6,  bgMode:'transparent', bgColor:'#ffffff', bgColor2:'#e6e8ee', shadow:'none',    borderWidth:0, borderColor:'#dddddd', format:'image/png',  quality:100,nameTemplate:'{basename}-hex-{size}',    zipLayout:'by-size' },
 };
 
-// ---------- State ----------
-const state = {
-  items:[],
 
 // ─── State ────────────────────────────────────────────────────────
 const st = {
@@ -876,7 +873,7 @@ function triggerDownload(blob,name) {
 
 
 // ─── File Intake ──────────────────────────────────────────────────
-async async function handleFileInput(files){
+async function handleFileInput(files){
   if(!files||!files.length) return;
   for(const f of Array.from(files)){
     if(f.name.toLowerCase().endsWith('.zip')&&st.inputMode==='zip'){await handleZip(f);return;}
@@ -894,7 +891,7 @@ async async function handleFileInput(files){
   render(); updateGoBtn();
 }
 
-async async function handleZip(file){
+async function handleZip(file){
   try{
     const zip=await JSZip.loadAsync(file);
     const newItems=[]; const imgExts=/\.(jpe?g|png|webp|bmp|gif|tiff?)$/i;
@@ -918,7 +915,7 @@ function onDragOver(e){e.preventDefault();e.currentTarget.classList.add('drag-ov
 function onDragLeave(e){e.currentTarget.classList.remove('drag-over');}
 function onDrop(e){e.preventDefault();e.currentTarget.classList.remove('drag-over');handleFileInput(e.dataTransfer.files);}
 
-async async function handleExcelFile(file){
+async function handleExcelFile(file){
   try{
     const buf=await file.arrayBuffer();
     const wb=XLSX.read(buf,{type:'array'});
