@@ -876,7 +876,7 @@ function triggerDownload(blob,name) {
 
 
 // ─── File Intake ──────────────────────────────────────────────────
-async function handleFileInput(files){
+async async function handleFileInput(files){
   if(!files||!files.length) return;
   for(const f of Array.from(files)){
     if(f.name.toLowerCase().endsWith('.zip')&&st.inputMode==='zip'){await handleZip(f);return;}
@@ -894,7 +894,7 @@ async function handleFileInput(files){
   render(); updateGoBtn();
 }
 
-async function handleZip(file){
+async async function handleZip(file){
   try{
     const zip=await JSZip.loadAsync(file);
     const newItems=[]; const imgExts=/\.(jpe?g|png|webp|bmp|gif|tiff?)$/i;
@@ -918,7 +918,7 @@ function onDragOver(e){e.preventDefault();e.currentTarget.classList.add('drag-ov
 function onDragLeave(e){e.currentTarget.classList.remove('drag-over');}
 function onDrop(e){e.preventDefault();e.currentTarget.classList.remove('drag-over');handleFileInput(e.dataTransfer.files);}
 
-async function handleExcelFile(file){
+async async function handleExcelFile(file){
   try{
     const buf=await file.arrayBuffer();
     const wb=XLSX.read(buf,{type:'array'});
@@ -970,7 +970,7 @@ function rebuildExcelItems(){
   render(); updateGoBtn();
 }
 
-function onFileOrExcelDrop(files){
+async function onFileOrExcelDrop(files){
   if(!files||!files.length) return;
   const ext=files[0].name.split('.').pop().toLowerCase();
   if(['xlsx','xls','csv'].includes(ext)){setInputMode('excel');handleExcelFile(files[0]);return;}
