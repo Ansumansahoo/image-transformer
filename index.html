@@ -8,7 +8,7 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 
-:root{--bg:#0f1117;--bg2:#171a24;--bg3:#1e2130X ;--fg:#e8eaf0;--fg2:#8a8fa8;--acc:#2563eb;--acc2:#1d4ed8;--acc3:#3b82f6;--good:#22c55e;--warn:#f59e0b;--err:#ef4444;--bdr:#2a2d3e;--bdr2:#353a52;--rad:8px;--rad2:12px}
+:root{--bg:#0f1117;--bg2:#171a24;--bg3:#1e2130;--fg:#e8eaf0;--fg2:#8a8fa8;--acc:#2563eb;--acc2:#1d4ed8;--acc3:#3b82f6;--good:#22c55e;--warn:#f59e0b;--err:#ef4444;--bdr:#2a2d3e;--bdr2:#353a52;--rad:8px;--rad2:12px}
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--fg);font:14px/1.5 system-ui,sans-serif;min-height:100vh}
 button{cursor:pointer;font:inherit}
@@ -68,6 +68,9 @@ input,select,textarea{font:inherit;color:var(--fg)}
 .dz-title{font-size:12px;font-weight:600}
 .dz-sub{font-size:10px;color:var(--fg2);margin-top:2px}
 .drop-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+  /* EXCEL DROP ZONE */
+  .excel-drop-wrap{padding:8px 12px 4px;display:none}
+  .excel-drop-wrap.show{display:block}
 /* URL INPUT */
 .url-area{display:none;flex-direction:column;gap:6px;padding:8px 12px 0}
 .url-area.show{display:flex}
@@ -261,6 +264,14 @@ body.light{--bg:#f0f2f8;--bg2:#ffffff;--bg3:#e8ebf2;--fg:#1a1d2e;--fg2:#555a70;-
         <div class="dz-title">Drop images here</div>
         <div class="dz-sub">or click to browse &middot; supports batch</div>
         <input type="file" id="fileInput" multiple accept="image/*,.zip">
+      </div>
+    </div>
+    <div class="excel-drop-wrap" id="excelDropWrap">
+      <div class="drop-zone" id="excelDropZone">
+        <div class="dz-icon">&#128202;</div>
+        <div class="dz-title">Drop Excel or CSV here</div>
+        <div class="dz-sub">or click to browse &middot; .xlsx, .xls, .csv</div>
+        <input type="file" id="excelFileInput" accept=".xlsx,.xls,.csv">
       </div>
     </div>
     <div id="corsField" style="display:none">
@@ -487,7 +498,7 @@ const D = {};
 function initDOM(){
   const ids=['goBtn','pauseBtn','resumeBtn','cancelBtn','retryBtn','dlAllBtn',
     'statTotal','statDone','statFail','statSpeed','statETA','progBar',
-    'modeSwatch','modeTransform','inputTabs','dropWrap','dropZone','fileInput','mainFileInput','mainDropArea',
+    'modeSwatch','modeTransform','inputTabs','dropWrap','dropZone','fileInput','excelDropWrap','excelDropZone','excelFileInput','mainFileInput','mainDropArea',
     'corsField','sheetField','urlColField','sheetSelect','urlColSelect','urlColHint','useCorsProxy','corsProxyUrl',
     'urlInputArea','singleUrl','bulkUrls','urlCount',
     'panelSwatch','panelTransform',
@@ -525,6 +536,7 @@ function setInputMode(mode){
   const showExcel=mode==='excel';
   const showUrl=mode==='urls';
   D.dropWrap.style.display=showDrop?'':'none';
+D.excelDropWrap.classList.toggle('show',showExcel);
   D.corsField.style.display=showExcel?'':'none';
   D.sheetField.style.display='none';
   D.urlColField.style.display='none';
@@ -1003,6 +1015,7 @@ function initSettings(){
   D.bulkUrls.addEventListener('input',updateUrlCount);
   D.mainFileInput.addEventListener('change',e=>{onFileOrExcelDrop(e.target.files);e.target.value='';});
   D.fileInput.addEventListener('change',e=>{handleFileInput(e.target.files);e.target.value='';});
+  D.excelFileInput.addEventListener('change',e=>{onFileOrExcelDrop(e.target.files);e.target.value='';});
 }
 
 function onBgModeChange(){st.bgMode=D.bgMode.value;D.bgColorRow.style.display=['custom','gradient'].includes(st.bgMode)?'':'none';}
@@ -1325,6 +1338,10 @@ function importPresets(inp){
   D.mainDropArea.addEventListener('dragleave',onDragLeave);
   D.mainDropArea.addEventListener('drop',e=>{e.preventDefault();e.currentTarget.classList.remove('drag-over');onFileOrExcelDrop(e.dataTransfer.files);});
   D.mainDropArea.addEventListener('click',()=>D.mainFileInput.click());
+  D.excelDropZone.addEventListener('dragover',onDragOver);
+  D.excelDropZone.addEventListener('dragleave',onDragLeave);
+  D.excelDropZone.addEventListener('drop',e=>{e.preventDefault();e.currentTarget.classList.remove('drag-over');onFileOrExcelDrop(e.dataTransfer.files);});
+  D.excelDropZone.addEventListener('click',()=>D.excelFileInput.click());
   D.presetsModal.addEventListener('click',e=>{if(e.target===D.presetsModal)closePresetsModal();});
 })();
 
