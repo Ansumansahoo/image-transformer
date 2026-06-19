@@ -44,6 +44,20 @@ VERSION = "2.1.0"
 SHAPES = ["square","circle","rounded","pill","oval","diamond","hexagon"]
 BG_PRESETS = {"white":(255,255,255,255),"black":(0,0,0,255),
               "transparent":(0,0,0,0),"gray":(128,128,128,255)}
+
+def resolve_bg(color_str):
+    """Resolve a color name or hex string to an RGBA tuple."""
+    if color_str in BG_PRESETS:
+        return BG_PRESETS[color_str]
+    if color_str.startswith("#"):
+        h = color_str.lstrip("#")
+        if len(h) == 6:
+            r,g,b = int(h[0:2],16),int(h[2:4],16),int(h[4:6],16)
+            return (r,g,b,255)
+        elif len(h) == 3:
+            r,g,b = int(h[0]*2,16),int(h[1]*2,16),int(h[2]*2,16)
+            return (r,g,b,255)
+    return (255,255,255,255)  # fallback white
 SUPPORTED_EXTS = {".jpg",".jpeg",".png",".webp",".bmp",".tif",".tiff"}
 
 def make_session(retries=3, timeout=30):
@@ -85,10 +99,10 @@ def detect_bbox(img, threshold=245):
     m=Image.new("L",(w,h)); m.putdata(md)
     bb=m.getbbox(); return bb if bb else (0,0,w,h)
 
-def smart_crop(img, size, engine="smart", thresh=245, pad=0.05):
+def smart_crop(img, size, engine="smart", thresh=245, pad=0.05, bbox=None):
     iw,ih = img.size
     if engine=="smart":
-        x0,y0,x1,y1=detect_bbox(img,thresh)
+        x0,y0,x1,y1=bbox if bbox else detect_bbox(img,thresh)
         bw,bh=x1-x0,y1-y0; p=int(max(bw,bh)*pad)
         x0,y0=max(0,x0-p),max(0,y0-p); x1,y1=min(iw,x1+p),min(ih,y1+p)
         c=img.crop((x0,y0,x1,y1)); cw,ch=c.size; sq=max(cw,ch)
@@ -150,7 +164,13 @@ def read_input(path,sheet=None):
         return [dict(zip(headers,r)) for r in it]
     elif ext==".csv":
         import csv
-        with open(path,newline="",encoding="utf-8-sig") as f: return list(csv.DictReader(f))
+        with open(path,newline="",encoding="utf-8-sig") as f:
+            rows=list(csv.reader(f))
+        if not rows: return []
+        # Detect headerless CSV: first row looks like a URL
+        if rows[0] and re.match(r"^https?://",rows[0][0].strip(),re.I):
+            return [{"url":r[0].strip()} for r in rows if r and r[0].strip()]
+        headers=rows[0]; return [dict(zip(headers,r)) for r in rows[1:]]
     elif ext in (".txt",""):
         with open(path,encoding="utf-8") as f:
             return [{"url":l.strip()} for l in f if l.strip().startswith("http")]
@@ -178,10 +198,11 @@ def process_row(row,idx,session,args):
         base=smart_name(res["sku"],res["row_name"],fname,idx)
         ext_m={"PNG":"png","JPEG":"jpg","JPG":"jpg","WEBP":"webp"}
         ext=ext_m.get(args.output_format.upper(),"png")
+        _bbox=detect_bbox(img,args.bg_threshold) if args.crop_engine=="smart" else None
         for sz in args.sizes:
             data=gen_swatch(img,sz,shape=args.shape,engine=args.crop_engine,
-                            bg=BG_PRESETS.get(args.bg_color,(255,255,255,255)),
-                            thresh=args.bg_threshold,pad=args.pad_pct/100,fmt=args.output_format)
+                            bg=resolve_bg(args.bg_color),
+                            thresh=args.bg_threshold,pad=args.pad_pct/100,fmt=args.output_format,bbox=_bbox)
             res["swatches"][sz]=data; res["output_names"][sz]=f"{base}_{sz}.{ext}"
     except Exception as e:
         res["status"]="error"; res["error"]=str(e)
@@ -195,10 +216,11 @@ def process_folder(folder,args):
         try:
             img,_=load_local(p); base=smart_name(None,None,p.stem,i)
             ext_m={"PNG":"png","JPEG":"jpg","WEBP":"webp"}; ext=ext_m.get(args.output_format.upper(),"png")
+            _bbox=detect_bbox(img,args.bg_threshold) if args.crop_engine=="smart" else None
             for sz in args.sizes:
                 data=gen_swatch(img,sz,shape=args.shape,engine=args.crop_engine,
-                                bg=BG_PRESETS.get(args.bg_color,(255,255,255,255)),
-                                thresh=args.bg_threshold,pad=args.pad_pct/100,fmt=args.output_format)
+                                bg=resolve_bg(args.bg_color),
+                                thresh=args.bg_threshold,pad=args.pad_pct/100,fmt=args.output_format,bbox=_bbox)
                 r["swatches"][sz]=data; r["output_names"][sz]=f"{base}_{sz}.{ext}"
         except Exception as e: r["status"]="error"; r["error"]=str(e)
         r["ms"]=int((time.time()-t0)*1000); results.append(r)
@@ -206,7 +228,7 @@ def process_folder(folder,args):
 
 def write_zip(results,out,layout="flat"):
     ok=[r for r in results if r["status"]=="ok"]
-    with zipfile.ZipFile(out,"w",zipfile.ZIP_DEFLATED) as zf:
+    with zipfile.ZipFile(out,"w",zipfile.ZIP_STORED) as zf:
         for r in ok:
             base=(list(r["output_names"].values())[0].rsplit("_",1)[0]
                   if r["output_names"] else f"img_{r['idx']+1}")
