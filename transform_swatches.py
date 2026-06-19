@@ -518,15 +518,14 @@ def parse_args():
                    choices=["crop", "pad", "stretch"])
     p.add_argument("--pad-color", default="#ffffff", dest="pad_color")
     p.add_argument("--upscale", action="store_true")
-    p.add_argument("--version", "-v", action="store_true")
+    # --version must exit before argparse validates --input (which is required)
+    p.add_argument("--version", "-v", action="version",
+                   version="%(prog)s " + VERSION)
     return p.parse_args()
 
 
 def main():
     args = parse_args()
-    if args.version:
-        print(f"v{VERSION}")
-        return
     args.sizes = [int(s.strip()) for s in args.sizes.split(",") if s.strip().isdigit()]
     if not args.sizes:
         sys.exit("No valid sizes. Use --sizes 128,256,512")
