@@ -1,47 +1,45 @@
 # core-rs — Rust Pixel Core
 
-**Phase 1 target.** This directory will contain the Rust implementation of the pixel math,
-compiled to both a native CLI binary and a WebAssembly module for the browser.
+**Status: Phase 1 COMPLETE** — CI green.
 
-## Status
+Single source of truth for all pixel math in Swatch Generator Pro.
+Compiles to a native CLI binary and (Phase 2) a WASM module for the browser.
 
-Phase 0 skeleton only. No Rust code yet.
+## Modules
 
-## Planned structure (Phase 1)
+| Module | Purpose | Bug fixes |
+|--------|---------|-----------|
+| `types.rs` | All enums + SwatchOptions | #1, #2, #3, #8 |
+| `bbox.rs` | Bounding-box detection (256px thumbnail) | — |
+| `crop.rs` | Crop engines (smart/center/contain/cover/stretch) + EXIF | #5 |
+| `shapes.rs` | 7 shape masks with anti-aliasing | — |
+| `color.rs` | Hex parsing + dominant colour detection | — |
+| `bg.rs` | Background compositing (solid/transparent/white/blur) | #1 |
+| `shadow.rs` | Drop shadow (soft/hard/glow) | — |
+| `border.rs` | Inset border rendering | #2, #7 |
+| `render.rs` | Main pipeline orchestrator | all 8 |
+| `main.rs` | swatch-cli binary | #8 |
+| `wasm_entry.rs` | WASM exports (Phase 2 stub) | — |
 
-```
-core-rs/
-  Cargo.toml          # lib + bin targets
-  src/
-    lib.rs            # Public API: SwatchOptions, render_swatch(), transform_image()
-    bbox.rs           # detect_bounding_box() — 256px thumbnail approach
-    crop.rs           # build_base() — smart/center/contain/cover/stretch
-    shapes.rs         # apply_shape_mask() — all 7 shapes
-    render.rs         # render_size() — resize + shape + bg + shadow + border
-    color.rs          # extract_dominant_color() — for Color chip shape
-    bg.rs             # draw_background() — transparent/white/black/custom/gradient
-    shadow.rs         # apply_drop_shadow() — soft/medium/strong/floating
-  benches/
-    bench_pipeline.rs # criterion benchmarks vs Python
-```
-
-## Build commands (Phase 1)
+## Build
 
 ```bash
-# Native CLI
-cd core-rs && cargo build --release
+# Build native CLI
+cargo build --release
+# Run in target/release/swatch-cli
+./target/release/swatch-cli --input photo.jpg --output out/ --sizes 300,600
 
-# WASM (requires wasm-pack)
-cd core-rs && wasm-pack build --target web --out-dir ../web/pkg
+# Run tests
+cargo test
 ```
 
-## Design decisions (record here as they are made)
+## Bug fixes included
 
-- **Image crate**: use `image` crate (JPEG/PNG/WebP decode/encode) + `imageproc` for
-  geometric operations (ellipse, polygon masks).
-- **Tiny-skia** for shape mask rasterization (better quality than pure image crate for
-  anti-aliased shapes).
-- **WASM size target**: < 600 KB gzipped. Exclude features not needed (no GIF, no TIFF
-  in the browser path).
-- **pyo3 binding**: NOT in Phase 1. Python CLI is parity-tested against Rust CLI
-  (subprocess comparison), not runtime-wired. Phase 4 revisits this.
+1. **#1** Custom BgMode::Custom actually paints the chosen color  
+2. **#2** BorderMode::None produces no border  
+3. **#3** Preset bgMode "solid" → "custom", bgThreshold alias accepted  
+4. **#4** (CORS proxy — browser-layer, not in Rust core)  
+5. **#5** EXIF orientation auto-applied in `auto_orient()`  
+6. **#6** (ZIP STORE — CLI/browser layer)  
+7. **#7** Non-rect shape borders use inset stroke (no half-thickness clip)  
+8. **#8** Invalid sizes reported to user via stderr, not silently dropped  
