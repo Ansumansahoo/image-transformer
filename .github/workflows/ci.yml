@@ -1,10 +1,10 @@
 # .github/workflows/ci.yml
-# CI for image-transformer — Pragmatic Tier refactor
+# CI for image-transformer -- Pragmatic Tier refactor
 #
 # Phase 0: python_tests job active.
 # Phase 1: rust_core job ACTIVE.
-# Phase 2: wasm_build — uncomment when Phase 2 begins.
-# Phase 3: ts_typecheck — uncomment when Phase 3 begins.
+# Phase 2: wasm_build -- uncomment when Phase 2 begins.
+# Phase 3: ts_typecheck -- uncomment when Phase 3 begins.
 
 name: CI
 
@@ -35,7 +35,8 @@ jobs:
       - name: Run Python tests
         run: pytest tests/ -v --tb=short
 
-  # Rust core (Phase 1)
+  # Rust core (Phase 1) -- builds with default features (cli)
+  # Note: wasm feature is excluded here (requires wasm32 target, Phase 2)
   rust_core:
     name: Rust core build + tests
     runs-on: ubuntu-latest
@@ -54,12 +55,12 @@ jobs:
             target/
           key: rust-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: rust-
-      - name: Build debug
+      - name: Build debug (default features = cli)
         working-directory: core-rs
-        run: cargo build --all-features
+        run: cargo build
       - name: Run Rust tests
         working-directory: core-rs
-        run: cargo test --all-features -- --test-output immediate
+        run: cargo test -- --test-output immediate
       - name: Build release
         working-directory: core-rs
-        run: cargo build --release --features cli
+        run: cargo build --release
