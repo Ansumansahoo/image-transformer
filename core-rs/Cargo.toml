@@ -1,0 +1,39 @@
+[package]
+name = "swatch-core"
+version = "0.1.0"
+edition = "2021"
+description = "Pixel-math core for Swatch Generator Pro"
+license = "MIT"
+
+[[bin]]
+name = "swatch-cli"
+path = "src/main.rs"
+required-features = ["cli"]
+
+[lib]
+name = "swatch_core"
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["cli"]
+cli = ["clap", "rayon"]
+wasm = ["wasm-bindgen", "js-sys"]
+
+[dependencies]
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp", "tiff"] }
+imageproc = "0.25"
+kamadak-exif = "0.5"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+clap = { version = "4", features = ["derive"], optional = true }
+rayon = { version = "1.10", optional = true }
+wasm-bindgen = { version = "0.2", optional = true }
+js-sys = { version = "0.3", optional = true }
+
+[dev-dependencies]
+approx = "0.5"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
