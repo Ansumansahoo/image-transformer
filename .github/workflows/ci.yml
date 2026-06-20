@@ -35,8 +35,7 @@ jobs:
       - name: Run Python tests
         run: pytest tests/ -v --tb=short
 
-  # Rust core (Phase 1) -- builds with default features (cli)
-  # Note: wasm feature is excluded here (requires wasm32 target, Phase 2)
+  # Rust core (Phase 1)
   rust_core:
     name: Rust core build + tests
     runs-on: ubuntu-latest
@@ -55,12 +54,12 @@ jobs:
             target/
           key: rust-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: rust-
-      - name: Build debug (default features = cli)
+      - name: Build debug
         working-directory: core-rs
         run: cargo build
       - name: Run Rust tests
         working-directory: core-rs
-        run: cargo test -- --test-output immediate
+        run: cargo test
       - name: Build release
         working-directory: core-rs
         run: cargo build --release
