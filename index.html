@@ -221,6 +221,7 @@ body.light{--bg:#f0f2f8;--bg2:#ffffff;--bg3:#e8ebf2;--fg:#1a1d2e;--fg2:#555a70;-
   <div class="mode-toggle" id="modeToggle">
     <button class="mode-btn active" id="modeSwatch" onclick="setMode('swatch')">&#127912; Swatch Generator</button>
     <button class="mode-btn" id="modeTransform" onclick="setMode('transform')">&#9889; Image Transformer</button>
+    <button class="mode-btn" id="modeBulk" onclick="setMode('bulk')">&#128194; Bulk Downloader</button>
   </div>
   <div class="header-right">
     <button class="hbtn" onclick="openPresetsModal()">&#9881; Presets</button>
@@ -238,7 +239,7 @@ body.light{--bg:#f0f2f8;--bg2:#ffffff;--bg3:#e8ebf2;--fg:#1a1d2e;--fg2:#555a70;-
   <button class="ctrl-btn" id="retryBtn" disabled onclick="retryFailed()">&#8635; Retry Failed</button>
   <div class="bar-sep"></div>
   <button class="ctrl-btn dl" id="dlAllBtn" disabled onclick="downloadAll()">&#11015; Download All (.zip)</button>
-  <button class="ctrl-btn" onclick="clearAll()">&#128465; Clear</button>
+  <button class="ctrl-btn" id="barClearBtn" onclick="clearAll()">&#128465; Clear</button>
   <div class="dashboard">
     <div class="stat-box"><div class="stat-val" id="statTotal">0</div><div class="stat-lbl">Total</div></div>
     <div class="stat-box"><div class="stat-val good" id="statDone">0</div><div class="stat-lbl">Done</div></div>
@@ -421,7 +422,40 @@ body.light{--bg:#f0f2f8;--bg2:#ffffff;--bg3:#e8ebf2;--fg:#1a1d2e;--fg2:#555a70;-
         <div class="sect-head">&#128195; File Naming</div>
         <div style="font-size:9px;color:var(--fg2)">Priority: SKU &#8594; Name &#8594; Filename &#8594; 0001</div>
       </div>
-    </div><!-- /panelTransform -->
+    </div>
+<!-- panelBulk -->
+<div id="panelBulk" style="display:none">
+  <div class="sect">
+    <div class="sect-head">&#127760; CORS Proxy</div>
+    <div class="field-row" style="margin-top:4px">
+      <label>Mode</label>
+      <select id="bulkProxyMode">
+        <option value="auto">Auto (try direct, fallback to proxy)</option>
+        <option value="off">Off &#8212; direct fetch only</option>
+        <option value="always">Always &#8212; use proxy for everything</option>
+      </select>
+    </div>
+    <div class="field-row">
+      <label>Proxy URL prefix</label>
+      <input type="text" id="bulkProxyUrl" value="http://localhost:8787/?url=" style="font-size:10px;font-family:monospace">
+    </div>
+    <div style="padding:3px 12px 2px;font-size:10px" id="bulkProxyStatus">Checking proxy&#8230;</div>
+    <div style="padding:0 12px 4px;font-size:9px;color:var(--fg2);line-height:1.4">Start: <code>python3 local-cors-proxy.py</code><br>Or double-click <code>start-proxy.command</code></div>
+    <div style="padding:0 12px 6px"><button class="ctrl-btn" style="font-size:10px;padding:3px 9px" onclick="bulkCheckProxy()">&#8635; Re-check</button></div>
+  </div>
+  <div class="sect">
+    <div class="sect-head">&#128736; Download Options</div>
+    <div class="field-row" style="margin-top:4px"><label>Concurrency</label><input type="number" id="bulkConcurrency" value="8" min="1" max="32"></div>
+    <div class="field-row"><label>Timeout (s)</label><input type="number" id="bulkTimeout" value="30" min="5" max="300"></div>
+    <div class="field-row"><label>Retries on failure</label><input type="number" id="bulkRetries" value="2" min="0" max="5"></div>
+    <div class="field-row"><label>Output ZIP name</label><input type="text" id="bulkZipName" value="images.zip"></div>
+    <div class="field-row">
+      <label>Filename column (optional)</label>
+      <select id="bulkFilenameCol"><option value="">&#8212; Use URL basename &#8212;</option></select>
+    </div>
+    <div class="field-row"><label>Filename template (advanced)</label><input type="text" id="bulkFilenameTemplate" placeholder="{SKU}_{index} or leave empty"></div>
+  </div>
+</div><!-- /panelBulk --><!-- /panelTransform -->
   </div><!-- /left-panel -->
   <div class="right-panel">
     <div class="drop-area" id="mainDropArea">
@@ -438,6 +472,50 @@ body.light{--bg:#f0f2f8;--bg2:#ffffff;--bg3:#e8ebf2;--fg:#1a1d2e;--fg2:#555a70;-
       </div>
       <div class="results-grid" id="resultsGrid" style="display:none"></div>
     </div>
+  <!-- Bulk Download Panel -->
+  <div id="bulkPanel" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+    <div style="padding:8px 10px 4px;flex-shrink:0">
+      <label id="bulkDropZone" style="display:block;border:2px dashed var(--bdr2);border-radius:var(--rad2);padding:18px 16px;text-align:center;cursor:pointer;background:var(--bg3);transition:.2s;position:relative">
+        <div class="dz-icon">&#128202;</div>
+        <div class="dz-title">Drop Excel or CSV here</div>
+        <div class="dz-sub">or click to browse &#183; .xlsx, .xls, .csv</div>
+        <input type="file" id="bulkFileInput" accept=".xlsx,.xls,.csv" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%">
+      </label>
+      <div id="bulkFileMeta" style="margin-top:6px;font-size:11px;color:var(--fg2)"></div>
+    </div>
+    <div id="bulkColsPanel" style="display:none;padding:0 10px 6px;flex-shrink:0">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+        <div class="field-row"><label>Sheet</label><select id="bulkSheetSelect"></select></div>
+        <div class="field-row"><label>URL Column</label><select id="bulkUrlColSelect"></select></div>
+      </div>
+    </div>
+    <div style="padding:0 10px 6px;flex-shrink:0">
+      <div class="dashboard" style="width:100%;border-radius:var(--rad2)">
+        <div class="stat-box"><div class="stat-val" id="bulkStatTotal">0</div><div class="stat-lbl">Total</div></div>
+        <div class="stat-box"><div class="stat-val good" id="bulkStatDone">0</div><div class="stat-lbl">Done</div></div>
+        <div class="stat-box"><div class="stat-val bad" id="bulkStatError">0</div><div class="stat-lbl">Errors</div></div>
+        <div class="stat-box"><div class="stat-val" id="bulkStatSpeed">&#8212;</div><div class="stat-lbl">Img/s</div></div>
+        <div class="stat-box"><div class="stat-val" id="bulkStatEta">&#8212;</div><div class="stat-lbl">ETA</div></div>
+        <div class="stat-box"><div class="stat-val" id="bulkStatPct">0%</div><div class="stat-lbl">Progress</div></div>
+      </div>
+      <div class="prog-row" style="margin-top:4px;border-radius:3px;overflow:hidden;height:4px"><div id="bulkProgBar" style="height:100%;background:var(--acc3);width:0%;transition:width .3s"></div></div>
+    </div>
+    <div style="padding:0 10px 6px;display:flex;flex-wrap:wrap;gap:5px;flex-shrink:0">
+      <button class="go-btn" id="bulkStartBtn" disabled onclick="bulkRun(false)">&#9654; Download All</button>
+      <button class="ctrl-btn" id="bulkPauseBtn" disabled onclick="bulkPause()">&#9646;&#9646; Pause</button>
+      <button class="ctrl-btn" id="bulkResumeBtn" disabled onclick="bulkResume()">&#9654; Resume</button>
+      <button class="ctrl-btn" id="bulkCancelBtn" disabled onclick="bulkCancel()">&#10005; Cancel</button>
+      <button class="ctrl-btn" id="bulkRetryBtn" disabled onclick="bulkRun(true)">&#8635; Retry Failed</button>
+      <button class="ctrl-btn dl" id="bulkDlZipBtn" disabled onclick="bulkDownloadZip()">&#11015; Download ZIP</button>
+      <button class="ctrl-btn" id="bulkDlReportBtn" disabled onclick="bulkDownloadReport()">&#128202; Report (.xlsx)</button>
+      <button class="ctrl-btn" id="bulkResetBtn" disabled onclick="bulkReset()">&#128465; Reset</button>
+    </div>
+    <div style="flex:1;overflow:hidden;padding:0 10px 10px">
+      <div id="bulkLog" style="height:100%;background:var(--bg3);border:1px solid var(--bdr);border-radius:var(--rad);padding:8px 10px;font-family:ui-monospace,monospace;font-size:10px;line-height:1.6;overflow-y:auto;color:var(--fg2)">
+        <div>Drop an Excel or CSV with image URLs to begin.</div>
+      </div>
+    </div>
+  </div>
   </div>
 </div>
 </div>
@@ -522,13 +600,25 @@ function setMode(mode){
   st.mode=mode;
   D.modeSwatch.classList.toggle('active',mode==='swatch');
   D.modeTransform.classList.toggle('active',mode==='transform');
+  const mbBtn=document.getElementById('modeBulk');if(mbBtn)mbBtn.classList.toggle('active',mode==='bulk');
   D.panelSwatch.style.display=mode==='swatch'?'':'none';
   D.panelTransform.style.display=mode==='transform'?'':'none';
-  D.goBtn.textContent=mode==='swatch'?'&#9654; Generate Swatches':'&#9654; Transform All';
+  const pb=document.getElementById('panelBulk');if(pb)pb.style.display=mode==='bulk'?'':'none';
+  D.goBtn.style.display=mode==='bulk'?'none':'';
+  D.pauseBtn.style.display=mode==='bulk'?'none':'';
+  D.resumeBtn.style.display=mode==='bulk'?'none':'';
+  D.cancelBtn.style.display=mode==='bulk'?'none':'';
+  D.retryBtn.style.display=mode==='bulk'?'none':'';
+  D.dlAllBtn.style.display=mode==='bulk'?'none':'';
+  const bcb=document.getElementById('barClearBtn');if(bcb)bcb.style.display=mode==='bulk'?'none':'';
+  const dsh=document.querySelector('.dashboard');if(dsh)dsh.style.display=mode==='bulk'?'none':'';
+  if(D.mainDropArea)D.mainDropArea.style.display=mode==='bulk'?'none':'';
+  const ra=document.querySelector('.results-area');if(ra)ra.style.display=mode==='bulk'?'none':'';
+  const bp2=document.getElementById('bulkPanel');if(bp2)bp2.style.display=mode==='bulk'?'flex':'none';
+  D.goBtn.textContent=mode==='swatch'?'\u25b6 Generate Swatches':'\u25b6 Transform All';
   localStorage.setItem('itp_mode',mode);
 }
 
-// ─── Input Tabs ───────────────────────────────────────────────────
 function setInputMode(mode){
   st.inputMode=mode;
   D.inputTabs.querySelectorAll('.itab').forEach(b=>b.classList.toggle('active',b.dataset.val===mode));
@@ -1354,6 +1444,131 @@ function importPresets(inp){
   D.excelDropZone.addEventListener('drop',e=>{e.preventDefault();e.currentTarget.classList.remove('drag-over');onFileOrExcelDrop(e.dataTransfer.files);});
   D.excelDropZone.addEventListener('click',()=>D.excelFileInput.click());
   D.presetsModal.addEventListener('click',e=>{if(e.target===D.presetsModal)closePresetsModal();});
+// ─── Bulk Image Downloader ────────────────────────────────────────────────────
+const BULK_EXT_FROM_CT={'image/jpeg':'.jpg','image/jpg':'.jpg','image/png':'.png','image/webp':'.webp','image/gif':'.gif','image/bmp':'.bmp','image/tiff':'.tiff','image/avif':'.avif','image/svg+xml':'.svg'};
+const BULK={workbook:null,fileName:'',sheetName:null,rows:null,headers:null,urlCol:null,results:[],processing:false,paused:false,cancelled:false,startTime:0,completedSinceStart:0,proxyAlive:false};
+function bulkLog(msg,cls){const el=document.getElementById('bulkLog');if(!el)return;const line=document.createElement('div');line.textContent=msg;if(cls==='ok')line.style.color='var(--good)';else if(cls==='err')line.style.color='var(--err)';else if(cls==='info')line.style.color='var(--acc3)';el.appendChild(line);el.scrollTop=el.scrollHeight;}
+function bulkClearLog(){const el=document.getElementById('bulkLog');if(el)el.innerHTML='<div>Ready.</div>';}
+async function bulkCheckProxy(){
+  BULK.proxyAlive=false;const el=document.getElementById('bulkProxyStatus');
+  const rawUrl=(document.getElementById('bulkProxyUrl')||{}).value||'http://localhost:8787/?url=';
+  const base=rawUrl.replace(/[?&].*$/,'').replace(/\/+$/,'');
+  if(!/^https?:\/\/(localhost|127\.0\.0\.1)/.test(base)){BULK.proxyAlive=true;if(el){el.textContent='Using external proxy URL.';el.style.color='var(--fg2)';}return;}
+  try{const ctl=new AbortController();const tid=setTimeout(()=>ctl.abort(),1500);const r=await fetch(base+'/health',{signal:ctl.signal});clearTimeout(tid);BULK.proxyAlive=r.ok;}catch{BULK.proxyAlive=false;}
+  if(el){el.textContent=BULK.proxyAlive?'\u2713 Local proxy running.':'\u26a0 Local proxy not running (only needed for CORS-blocked hosts).';el.style.color=BULK.proxyAlive?'var(--good)':'var(--warn)';}
+}
+function bulkUpdateDashboard(){
+  const total=BULK.rows?BULK.rows.length:0,done=BULK.results.filter(r=>r&&r.status==='done').length,err=BULK.results.filter(r=>r&&r.status==='error').length;
+  const sv=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+  sv('bulkStatTotal',total);sv('bulkStatDone',done);sv('bulkStatError',err);
+  const pct=total?Math.round((done+err)/total*100):0;sv('bulkStatPct',pct+'%');
+  const pb=document.getElementById('bulkProgBar');if(pb)pb.style.width=pct+'%';
+  if(BULK.processing&&BULK.startTime){const elapsed=(Date.now()-BULK.startTime)/1000;const rate=BULK.completedSinceStart/Math.max(elapsed,0.001);sv('bulkStatSpeed',rate>0?rate.toFixed(1)+'/s':'\u2014');const rem=total-done-err;const eta=rate>0?Math.ceil(rem/rate):0;sv('bulkStatEta',eta>60?Math.floor(eta/60)+'m '+Math.round(eta%60)+'s':eta>0?eta+'s':'\u2014');}else{sv('bulkStatSpeed','\u2014');sv('bulkStatEta','\u2014');}
+  const sd=(id,v)=>{const e=document.getElementById(id);if(e)e.disabled=v;};
+  sd('bulkStartBtn',!BULK.rows||BULK.processing);sd('bulkPauseBtn',!BULK.processing||BULK.paused);sd('bulkResumeBtn',!BULK.processing||!BULK.paused);sd('bulkCancelBtn',!BULK.processing);sd('bulkRetryBtn',!BULK.results.some(r=>r&&r.status==='error')||BULK.processing);sd('bulkDlZipBtn',!BULK.results.some(r=>r&&r.status==='done'));sd('bulkDlReportBtn',!BULK.results.some(r=>r&&(r.status==='done'||r.status==='error')));sd('bulkResetBtn',!BULK.rows);
+}
+function bulkHandleFile(file){
+  if(!file)return;BULK.fileName=file.name;
+  file.arrayBuffer().then(buf=>{
+    try{BULK.workbook=XLSX.read(buf,{type:'array'});}catch(e){alert('Cannot parse: '+e.message);return;}
+    if(!BULK.workbook.SheetNames.length){alert('No sheets found.');return;}
+    const ss=document.getElementById('bulkSheetSelect');
+    if(ss){ss.innerHTML='';BULK.workbook.SheetNames.forEach(n=>{const o=document.createElement('option');o.value=o.textContent=n;ss.appendChild(o);});}
+    const best=bulkPickSheet(BULK.workbook);if(ss)ss.value=best;
+    bulkLoadSheet(best);const cp=document.getElementById('bulkColsPanel');if(cp)cp.style.display='';
+    const fm=document.getElementById('bulkFileMeta');if(fm)fm.textContent=file.name+' \u00b7 '+BULK.workbook.SheetNames.length+' sheet(s)';
+  }).catch(e=>alert('Read error: '+e.message));
+}
+function bulkPickSheet(wb){let best=wb.SheetNames[0],bestCount=-1;for(const name of wb.SheetNames){const rows=XLSX.utils.sheet_to_json(wb.Sheets[name],{defval:'',raw:false});let count=0;for(const r of rows)for(const v of Object.values(r)){if(typeof v==='string'&&/^https?:\/\//i.test(v.trim())){count++;break;}}if(count>bestCount){bestCount=count;best=name;}}return best;}
+function bulkLoadSheet(name){
+  BULK.sheetName=name;const ws=BULK.workbook.Sheets[name];BULK.rows=XLSX.utils.sheet_to_json(ws,{defval:'',raw:false});
+  if(!BULK.rows.length){alert('Sheet has no rows.');return;}
+  BULK.headers=Object.keys(BULK.rows[0]);
+  const candidates=BULK.headers.filter(h=>BULK.rows.some(r=>typeof r[h]==='string'&&/^https?:\/\//i.test(r[h].trim())));
+  const ucs=document.getElementById('bulkUrlColSelect');
+  if(ucs){ucs.innerHTML='';BULK.headers.forEach(h=>{const o=document.createElement('option');o.value=h;const cnt=BULK.rows.filter(r=>typeof r[h]==='string'&&/^https?:\/\//i.test(r[h].trim())).length;o.textContent=h+(cnt?' ('+cnt+' URLs)':'');if(!candidates.includes(h))o.disabled=true;ucs.appendChild(o);});const pick=BULK.headers.find(h=>candidates.includes(h)&&/url|image|link|src|photo|thumb|picture/i.test(h))||candidates[0];if(pick){ucs.value=pick;BULK.urlCol=pick;}}
+  const fcs=document.getElementById('bulkFilenameCol');
+  if(fcs){fcs.innerHTML='<option value="">\u2014 Use URL basename \u2014</option>';BULK.headers.forEach(h=>{const o=document.createElement('option');o.value=h;o.textContent=h;fcs.appendChild(o);});const pick=BULK.headers.find(h=>/sku|product|name|title|id|code|item/i.test(h)&&h!==BULK.urlCol);if(pick)fcs.value=pick;}
+  BULK.results=new Array(BULK.rows.length).fill(null);
+  bulkUpdateDashboard();bulkClearLog();bulkLog('Loaded '+BULK.rows.length+' rows. URL col: '+BULK.urlCol+'.','info');
+}
+function bulkReset(){BULK.results=new Array(BULK.rows?BULK.rows.length:0).fill(null);bulkUpdateDashboard();bulkClearLog();}
+function bulkPause(){BULK.paused=true;bulkUpdateDashboard();bulkLog('Paused.','info');}
+function bulkResume(){BULK.paused=false;bulkUpdateDashboard();bulkLog('Resumed.','info');}
+function bulkCancel(){BULK.cancelled=true;bulkLog('Cancelling\u2026','info');}
+function bulkFilenameFromUrl(url){try{const p=new URL(url).pathname;const parts=p.split('/').filter(Boolean);const last=parts[parts.length-1]||'';return decodeURIComponent(last).replace(/[?#].*$/,'');}catch{return '';}}
+function bulkSafeFilename(s,fallback){s=String(s||'').trim();if(!s)return fallback;s=s.replace(/[^A-Za-z0-9._\- ]+/g,'_').replace(/_+/g,'_').replace(/^[._ ]+|[._ ]+$/g,'');return s||fallback;}
+function bulkExtFor(url,ct){const fn=bulkFilenameFromUrl(url);const m=fn.match(/\.(jpe?g|png|webp|gif|bmp|tiff?|avif|svg)$/i);if(m)return '.'+m[1].toLowerCase().replace('jpeg','jpg');const key=(ct||'').split(';')[0].trim().toLowerCase();return BULK_EXT_FROM_CT[key]||'.jpg';}
+function bulkRenderTemplate(t,row,idx,url){const base=bulkFilenameFromUrl(url).replace(/\.[^.]+$/,'');let out=t;for(const[k,v]of Object.entries(row))out=out.split('{'+k+'}').join(String(v||''));out=out.split('{index}').join(String(idx+1));out=out.split('{idx04}').join(String(idx+1).padStart(4,'0'));out=out.split('{basename}').join(base);return out;}
+async function bulkRun(retryOnly){
+  if(!BULK.rows||!BULK.urlCol){alert('Load a spreadsheet first.');return;}
+  if(BULK.processing)return;
+  const ucs=document.getElementById('bulkUrlColSelect');if(ucs)BULK.urlCol=ucs.value||BULK.urlCol;
+  BULK.processing=true;BULK.paused=false;BULK.cancelled=false;BULK.startTime=Date.now();BULK.completedSinceStart=0;
+  const tmpl=(document.getElementById('bulkFilenameTemplate')||{}).value||'';
+  const fnCol=(document.getElementById('bulkFilenameCol')||{}).value||'';
+  const concurrency=Math.max(1,Math.min(32,parseInt((document.getElementById('bulkConcurrency')||{}).value)||8));
+  const timeout=((parseInt((document.getElementById('bulkTimeout')||{}).value)||30))*1000;
+  const maxRetries=Math.max(0,parseInt((document.getElementById('bulkRetries')||{}).value)||2);
+  const proxyMode=(document.getElementById('bulkProxyMode')||{}).value||'auto';
+  const proxyPrefix=(document.getElementById('bulkProxyUrl')||{}).value||'http://localhost:8787/?url=';
+  const queue=[];
+  for(let i=0;i<BULK.rows.length;i++){const r=BULK.results[i];if(retryOnly){if(r&&r.status==='error')queue.push(i);}else{if(!r||r.status==='error'||r.status==='pending')queue.push(i);}}
+  if(!queue.length){BULK.processing=false;bulkUpdateDashboard();return;}
+  bulkLog('Starting '+queue.length+' downloads (concurrency='+concurrency+')\u2026','info');
+  const usedNames=new Set();BULK.results.forEach(r=>{if(r&&r.filename)usedNames.add(r.filename);});
+  let cursor=0,logCount=0;const renderEvery=Math.max(1,Math.floor(queue.length/50));
+  const workers=Array.from({length:Math.min(concurrency,queue.length)},async()=>{
+    while(true){
+      while(BULK.paused&&!BULK.cancelled)await new Promise(r=>setTimeout(r,100));
+      if(BULK.cancelled)return;const qi=cursor++;if(qi>=queue.length)return;
+      const rowIdx=queue[qi];const row=BULK.rows[rowIdx];const url=String(row[BULK.urlCol]||'').trim();
+      if(!/^https?:\/\//i.test(url)){BULK.results[rowIdx]={status:'error',filename:'',bytes:0,error:'no URL'};BULK.completedSinceStart++;if(++logCount<=50)bulkLog('#'+(rowIdx+1)+': no URL','err');if(BULK.completedSinceStart%renderEvery===0)bulkUpdateDashboard();continue;}
+      let base;if(tmpl)base=bulkRenderTemplate(tmpl,row,rowIdx,url);else if(fnCol)base=bulkSafeFilename(row[fnCol],'image-'+String(rowIdx+1).padStart(4,'0'));else{const fn=bulkFilenameFromUrl(url);base=fn.replace(/\.[^.]+$/,'')||'image-'+String(rowIdx+1).padStart(4,'0');}
+      const proxied=proxyPrefix+encodeURIComponent(url);const targets=proxyMode==='always'?[proxied]:proxyMode==='off'?[url]:[url,proxied];
+      let attempt=0,lastErr=null,blob=null,ct='';
+      while(attempt<=maxRetries){
+        if(BULK.cancelled)return;
+        for(const t of targets){try{const ctrl=new AbortController();const tid=setTimeout(()=>ctrl.abort(),timeout);const resp=await fetch(t,{mode:'cors',signal:ctrl.signal});clearTimeout(tid);if(!resp.ok){lastErr=new Error('HTTP '+resp.status);continue;}ct=resp.headers.get('Content-Type')||'';blob=await resp.blob();lastErr=null;break;}catch(e){lastErr=e;}}
+        if(blob)break;attempt++;if(attempt<=maxRetries)await new Promise(r=>setTimeout(r,400*attempt));
+      }
+      if(!blob){BULK.results[rowIdx]={status:'error',filename:'',bytes:0,error:(lastErr&&lastErr.message)?lastErr.message.slice(0,120):'fetch failed'};BULK.completedSinceStart++;if(++logCount<=100)bulkLog('#'+(rowIdx+1)+' \u2717  '+url.slice(0,60)+'  \u2192  '+(lastErr?lastErr.message.slice(0,60):'failed'),'err');}
+      else{const ext=bulkExtFor(url,ct);let fname=base+ext;let n=1;while(usedNames.has(fname)){n++;const dot=fname.lastIndexOf('.');fname=dot>=0?base+'-'+n+fname.slice(dot):fname+'-'+n;}usedNames.add(fname);BULK.results[rowIdx]={status:'done',filename:fname,bytes:blob.size,error:'',blob};BULK.completedSinceStart++;if(++logCount<=50)bulkLog('#'+(rowIdx+1)+' \u2713  '+fname+'  ('+Math.round(blob.size/1024)+'KB)','ok');}
+      if(BULK.completedSinceStart%renderEvery===0)bulkUpdateDashboard();await new Promise(r=>setTimeout(r,0));
+    }
+  });
+  await Promise.all(workers);
+  BULK.processing=false;BULK.paused=false;
+  const ok=BULK.results.filter(r=>r&&r.status==='done').length,er=BULK.results.filter(r=>r&&r.status==='error').length,elapsed=(Date.now()-BULK.startTime)/1000;
+  bulkLog('Finished. ok='+ok+' err='+er+' in '+(elapsed<60?Math.ceil(elapsed)+'s':Math.floor(elapsed/60)+'m '+Math.round(elapsed%60)+'s')+'.','info');
+  bulkUpdateDashboard();
+}
+async function bulkDownloadZip(){
+  const done=BULK.results.map((r,i)=>({r,i})).filter(x=>x.r&&x.r.status==='done');if(!done.length)return;
+  bulkLog('Building ZIP with '+done.length+' files\u2026','info');const zip=new JSZip();for(const{r}of done)zip.file(r.filename,r.blob);
+  const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}},meta=>{const pb=document.getElementById('bulkProgBar');if(pb)pb.style.width=meta.percent.toFixed(0)+'%';});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=(document.getElementById('bulkZipName')||{}).value||'images.zip';document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+  bulkLog('ZIP ready: '+Math.round(blob.size/1024/1024*10)/10+' MB.','info');bulkUpdateDashboard();
+}
+async function bulkDownloadReport(){
+  if(!BULK.rows||!BULK.urlCol)return;const extras=['status','filename','bytes','error'];
+  const newRows=BULK.rows.map((row,i)=>{const r=BULK.results[i];const copy={...row};if(r){copy.status=r.status;copy.filename=r.filename||'';copy.bytes=r.bytes||'';copy.error=r.error||'';}else extras.forEach(c=>copy[c]='');return copy;});
+  const hdrs=[...BULK.headers.filter(h=>!extras.includes(h)),...extras];const ws=XLSX.utils.json_to_sheet(newRows,{header:hdrs});const wb2=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb2,ws,'Downloads');
+  const buf=XLSX.write(wb2,{type:'array',bookType:'xlsx'});const base=BULK.fileName.replace(/\.[^.]+$/,'');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));a.download=base+'-download-report.xlsx';document.body.appendChild(a);a.click();document.body.removeChild(a);
+}
+function bulkInitEvents(){
+  const dz=document.getElementById('bulkDropZone');
+  if(dz){dz.addEventListener('dragover',e=>{e.preventDefault();dz.style.borderColor='var(--acc3)';});dz.addEventListener('dragleave',()=>{dz.style.borderColor='';});dz.addEventListener('drop',e=>{e.preventDefault();dz.style.borderColor='';if(e.dataTransfer.files.length)bulkHandleFile(e.dataTransfer.files[0]);});}
+  const fi=document.getElementById('bulkFileInput');if(fi)fi.addEventListener('change',e=>{if(e.target.files.length)bulkHandleFile(e.target.files[0]);e.target.value='';});
+  const ss=document.getElementById('bulkSheetSelect');if(ss)ss.addEventListener('change',()=>bulkLoadSheet(ss.value));
+  const ucs=document.getElementById('bulkUrlColSelect');if(ucs)ucs.addEventListener('change',()=>{BULK.urlCol=ucs.value;});
+  const pu=document.getElementById('bulkProxyUrl');if(pu)pu.addEventListener('change',()=>bulkCheckProxy());
+  bulkCheckProxy();bulkUpdateDashboard();
+}
+// ─── End Bulk Image Downloader ───────────────────────────────────────────────
+
+  bulkInitEvents();
 })();
 
 </script>
