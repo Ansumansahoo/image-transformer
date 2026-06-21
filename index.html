@@ -276,10 +276,26 @@ body.light{--bg:#f0f2f8;--bg2:#ffffff;--bg3:#e8ebf2;--fg:#1a1d2e;--fg2:#555a70;-
       </div>
     </div>
     <div id="corsField" style="display:none">
-      <div class="cors-row"><input type="checkbox" id="useCorsProxy"><label for="useCorsProxy">Route through CORS proxy</label></div>
-      <div style="padding:0 12px 4px"><input type="text" id="corsProxyUrl" value="https://corsproxy.io/?url=" placeholder="Proxy prefix" style="width:100%;padding:4px 7px;background:var(--bg3);border:1px solid var(--bdr2);border-radius:6px;color:var(--fg);font-size:11px"></div>
+      <div class="sect" style="border-top:1px solid var(--bdr);padding:8px 12px 6px;margin-top:2px">
+        <div class="sect-head">&#127760; CORS Proxy</div>
+        <div class="field-row" style="margin-top:2px">
+          <label>Mode</label>
+          <select id="useCorsProxy">
+            <option value="auto">Auto (try direct, fallback to proxy)</option>
+            <option value="off">Off &#8212; direct fetch only</option>
+            <option value="always">Always &#8212; use proxy for everything</option>
+          </select>
+        </div>
+        <div class="field-row">
+          <label>Proxy URL prefix</label>
+          <input type="text" id="corsProxyUrl" value="http://localhost:8787/?url=" style="font-size:10px;font-family:monospace">
+        </div>
+        <div style="padding:3px 0 2px;font-size:10px" id="corsProxyStatus">Checking proxy&#8230;</div>
+        <div style="font-size:9px;color:var(--fg2);line-height:1.4;margin-top:2px">Start: <code>python3 local-cors-proxy.py</code> or double-click <code>start-proxy.command</code></div>
+        <button class="ctrl-btn" style="font-size:10px;padding:3px 9px;margin-top:5px" onclick="swCheckProxy()">&#8635; Re-check</button>
+      </div>
     </div>
-    <div id="sheetField" style="display:none" class="field-row"><label>Sheet</label><select id="sheetSelect"></select></div>
+<div id="sheetField" style="display:none" class="field-row"><label>Sheet</label><select id="sheetSelect"></select></div>
     <div id="urlColField" style="display:none" class="field-row">
       <label>URL Column <span id="urlColHint" style="color:var(--acc3);font-size:9px"></span></label>
       <select id="urlColSelect"></select>
@@ -627,7 +643,7 @@ function setInputMode(mode){
   const showUrl=mode==='urls';
   D.dropWrap.style.display=showDrop?'':'none';
 D.excelDropWrap.classList.toggle('show',showExcel);
-  D.corsField.style.display=showExcel?'':'none';
+  D.corsField.style.display=(showExcel||showUrl)?'':'none';
   D.sheetField.style.display='none';
   D.urlColField.style.display='none';
   D.urlInputArea.style.display=showUrl?'flex':'none';
@@ -905,9 +921,10 @@ async function downscaleIfNeeded(img,dw,dh) {
   return cur;
 }
 async function fetchImage(url) {
-  const useProxy=D.useCorsProxy.checked;
-  const prefix=D.corsProxyUrl.value||'https://corsproxy.io/?url=';
-  const targets=useProxy?[prefix+encodeURIComponent(url),url]:[url,prefix+encodeURIComponent(url)];
+  const mode=(D.useCorsProxy&&D.useCorsProxy.value)||'auto';
+  const prefix=(D.corsProxyUrl&&D.corsProxyUrl.value)||'http://localhost:8787/?url=';
+  const proxied=prefix+encodeURIComponent(url);
+  const targets=mode==='always'?[proxied]:mode==='off'?[url]:[url,proxied];
   let lastErr=null;
   for(const t of targets){
     try{
@@ -916,8 +933,9 @@ async function fetchImage(url) {
       return await resp.blob();
     }catch(e){ lastErr=e; }
   }
-  throw new Error(useProxy?'Fetch failed: '+(lastErr?.message||''):'CORS blocked — enable CORS proxy or use Python CLI');
+  throw new Error('Fetch failed: '+(lastErr?.message||'CORS blocked'));
 }
+
 async function loadImg(url) {
   if(typeof createImageBitmap==='function'){
     try{
@@ -934,12 +952,15 @@ async function loadImg(url) {
   });
 }
 async function _itFetch(url){
-  const useP=D.useCorsProxy&&D.useCorsProxy.checked;const prefix=(D.corsProxyUrl&&D.corsProxyUrl.value)||'https://corsproxy.io/?url=';
-  const targets=useP?[prefix+encodeURIComponent(url),url]:[url,prefix+encodeURIComponent(url)];
+  const mode=(D.useCorsProxy&&D.useCorsProxy.value)||'auto';
+  const prefix=(D.corsProxyUrl&&D.corsProxyUrl.value)||'http://localhost:8787/?url=';
+  const proxied=prefix+encodeURIComponent(url);
+  const targets=mode==='always'?[proxied]:mode==='off'?[url]:[url,proxied];
   let lastErr=null;
   for(const t of targets){try{const r=await fetch(t,{mode:'cors'});if(!r.ok){lastErr=new Error('HTTP '+r.status);continue;}return await r.blob();}catch(e){lastErr=e;}}
   throw new Error('Fetch failed: '+(lastErr?.message||''));
 }
+
 async function _itLI(url){
   if(typeof createImageBitmap==='function'){try{const r=await fetch(url);const b=await r.blob();return await createImageBitmap(b);}catch{}}
   return new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=url;});
@@ -1108,6 +1129,8 @@ function initSettings(){
   D.mainFileInput.addEventListener('change',e=>{onFileOrExcelDrop(e.target.files);e.target.value='';});
   D.fileInput.addEventListener('change',e=>{handleFileInput(e.target.files);e.target.value='';});
   D.excelFileInput.addEventListener('change',e=>{onFileOrExcelDrop(e.target.files);e.target.value='';});
+  if(D.useCorsProxy)D.useCorsProxy.addEventListener('change',swCheckProxy);
+  if(D.corsProxyUrl)D.corsProxyUrl.addEventListener('change',swCheckProxy);
 }
 
 function onBgModeChange(){st.bgMode=D.bgMode.value;D.bgColorRow.style.display=['custom','gradient'].includes(st.bgMode)?'':'none';}
@@ -1277,12 +1300,12 @@ function collectSwatchOpts(){
     outputFormat:rawFmt,outputQuality:parseInt(D.outputQuality.value),
     nameTemplate:D.nameTemplate.value||'{basename}_{size}',
     zipLayout:st.zipLayout,
-    useCorsProxy:D.useCorsProxy.checked,
-    corsProxyUrl:D.corsProxyUrl.value||'https://corsproxy.io/?url='};
+    proxyMode:D.useCorsProxy.value||'auto',
+    corsProxyUrl:D.corsProxyUrl.value||'http://localhost:8787/?url='};
 }
 async function processSwatchItem(item,opts){
   if(item.sourceUrl&&!item.srcUrl){
-    const blob=await fetchImage(item.sourceUrl,opts.useCorsProxy,opts.corsProxyUrl);
+    const blob=await fetchImage(item.sourceUrl);
     item.srcUrl=URL.createObjectURL(blob);item.srcSize=blob.size;
     const dims=await getImageDims(item.srcUrl);item.srcW=dims.w;item.srcH=dims.h;
   }
@@ -1323,7 +1346,7 @@ async function runTransform(queue){
 async function processTransformItem(item,opts){
   if(item.sourceUrl&&!item.srcUrl){
     try{const blob=await _itFetch(item.sourceUrl);item.srcUrl=URL.createObjectURL(blob);item.srcSize=blob.size;}
-    catch(e){const blob=await fetchImage(item.sourceUrl,false,'');item.srcUrl=URL.createObjectURL(blob);item.srcSize=blob.size;}
+    catch(e){const blob=await fetchImage(item.sourceUrl);item.srcUrl=URL.createObjectURL(blob);item.srcSize=blob.size;}
   }
   if(!item.srcUrl&&item.file) item.srcUrl=URL.createObjectURL(item.file);
   if(item.outputUrl)try{URL.revokeObjectURL(item.outputUrl);}catch(e){}
@@ -1444,7 +1467,19 @@ function importPresets(inp){
   D.excelDropZone.addEventListener('drop',e=>{e.preventDefault();e.currentTarget.classList.remove('drag-over');onFileOrExcelDrop(e.dataTransfer.files);});
   D.excelDropZone.addEventListener('click',()=>D.excelFileInput.click());
   D.presetsModal.addEventListener('click',e=>{if(e.target===D.presetsModal)closePresetsModal();});
-// ─── Bulk Image Downloader ────────────────────────────────────────────────────
+// ─── Shared CORS Proxy Health Check (Swatch + Transform) ───────────────────
+async function swCheckProxy(){
+  const el=document.getElementById('corsProxyStatus');
+  const rawUrl=(D.corsProxyUrl&&D.corsProxyUrl.value)||'http://localhost:8787/?url=';
+  const base=rawUrl.replace(/[?&].*$/,'').replace(/\/+$/,'');
+  if(!/^https?:\/\/(localhost|127\.0\.0\.1)/.test(base)){
+    if(el){el.textContent='Using external proxy URL.';el.style.color='var(--fg2)';}return;
+  }
+  let alive=false;
+  try{const ctl=new AbortController();const tid=setTimeout(()=>ctl.abort(),1500);const r=await fetch(base+'/health',{signal:ctl.signal});clearTimeout(tid);alive=r.ok;}catch{}
+  if(el){el.textContent=alive?'\u2713 Local proxy running.':'\u26a0 Proxy not running (only needed for CORS-blocked hosts).';el.style.color=alive?'var(--good)':'var(--warn)';}
+}
+// ─── Bulk Image Downloader ────────────────────────────────
 const BULK_EXT_FROM_CT={'image/jpeg':'.jpg','image/jpg':'.jpg','image/png':'.png','image/webp':'.webp','image/gif':'.gif','image/bmp':'.bmp','image/tiff':'.tiff','image/avif':'.avif','image/svg+xml':'.svg'};
 const BULK={workbook:null,fileName:'',sheetName:null,rows:null,headers:null,urlCol:null,results:[],processing:false,paused:false,cancelled:false,startTime:0,completedSinceStart:0,proxyAlive:false};
 function bulkLog(msg,cls){const el=document.getElementById('bulkLog');if(!el)return;const line=document.createElement('div');line.textContent=msg;if(cls==='ok')line.style.color='var(--good)';else if(cls==='err')line.style.color='var(--err)';else if(cls==='info')line.style.color='var(--acc3)';el.appendChild(line);el.scrollTop=el.scrollHeight;}
@@ -1568,6 +1603,7 @@ function bulkInitEvents(){
 }
 // ─── End Bulk Image Downloader ───────────────────────────────────────────────
 
+  swCheckProxy();
   bulkInitEvents();
 })();
 
